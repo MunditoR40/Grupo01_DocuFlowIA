@@ -1,0 +1,13 @@
+# ===============================================================
+# DocuFlow AI — Protección de Archivos Internos PHP
+# ===============================================================
+
+# Bloquear acceso HTTP directo a archivos de configuración, conexiones y scripts de inicialización
+<FilesMatch "^(config|conexion|auth_helper|DocuFlowDB|crear_base_datos)\.php$">
+    Require all denied
+</FilesMatch>
+
+# Bloquear archivos de migraciones SQL o plantillas
+<FilesMatch "(?i)\.(sql|sh|env)$">
+    Require all denied
+</FilesMatch>

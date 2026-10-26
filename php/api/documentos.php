@@ -5,9 +5,8 @@
  */
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
@@ -45,7 +44,7 @@ try {
     }
 
     // ─────────────────────────────────────────────────────────
-    // 1. GET: Descargar archivo físico con control de acceso
+    // 1. GET: Descargar archivo físico con autorización centralizada
     // ─────────────────────────────────────────────────────────
     if ($method === 'GET' && $action === 'download') {
         $usuario = Auth::requerirPermiso('DOCUMENTOS_DESCARGAR');
@@ -61,6 +60,7 @@ try {
             exit;
         }
 
+        // Consultar el documento en MySQL
         $stmt = $pdo->prepare("
             SELECT d.*, dep.nombre AS dependencia_nombre
             FROM documentos d
@@ -81,43 +81,38 @@ try {
             exit;
         }
 
-        // Restricción por rol:
-        // OPE: Solo documentos de su dependencia o propios
-        if ($usuario['rol_codigo'] === 'OPE') {
-            if ((int)$doc['dependencia_id'] !== (int)$usuario['dependencia_id'] && (int)$doc['usuario_id'] !== (int)$usuario['id']) {
-                http_response_code(403);
-                echo json_encode([
-                    'ok'      => false,
-                    'status'  => 403,
-                    'message' => 'No tiene autorización para descargar documentos fuera de su dependencia.'
-                ], JSON_UNESCAPED_UNICODE);
-                exit;
-            }
-        }
-
-        // CON: Solo documentos públicos o internos, no confidenciales
-        if ($usuario['rol_codigo'] === 'CON' && in_array(strtolower($doc['nivel_confidencialidad']), ['confidencial', 'restringido'], true)) {
+        // Comprobación de autorización documental mediante servicio centralizado
+        if (!DocumentoPermisos::puedeDescargar($usuario, $doc)) {
             http_response_code(403);
             echo json_encode([
                 'ok'      => false,
                 'status'  => 403,
-                'message' => 'No tiene autorización para descargar documentos de carácter confidencial.'
+                'message' => 'Acceso denegado. No tiene autorización para descargar este documento según las políticas de rol, dependencia y confidencialidad.'
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        $rutaFisica = __DIR__ . '/../../' . $doc['ruta_almacenada'];
-        if (!file_exists($rutaFisica) || !is_file($rutaFisica)) {
+        // Resolución segura de ruta física y prevención de Path Traversal
+        $uploadBaseDir = realpath(__DIR__ . '/../../uploads');
+        if ($uploadBaseDir === false) {
+            $uploadBaseDir = __DIR__ . '/../../uploads';
+        }
+
+        $nombreArchivoInterno = basename($doc['ruta_almacenada']);
+        $rutaFisica = realpath($uploadBaseDir . DIRECTORY_SEPARATOR . $nombreArchivoInterno);
+
+        // Validar que el archivo resuelto esté dentro del directorio uploads/ permitido
+        if ($rutaFisica === false || !str_starts_with($rutaFisica, $uploadBaseDir) || !is_file($rutaFisica)) {
             http_response_code(404);
             echo json_encode([
                 'ok'      => false,
                 'status'  => 404,
-                'message' => 'El archivo físico no se encuentra en el almacenamiento del servidor.'
+                'message' => 'El archivo físico no se encuentra en el almacenamiento seguro del servidor.'
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        // Registrar auditoría de descarga real
+        // Registrar auditoría de descarga autorizada
         DocuFlowDB::registrarAuditoria(
             (int)$usuario['id'],
             (int)$doc['id'],
@@ -129,12 +124,15 @@ try {
             ]
         );
 
-        // Envío del archivo como descarga binaria
+        // Cabeceras binarias y codificación RFC 5987 / RFC 6266 para nombres especiales
+        $filenameOrig = basename($doc['nombre_original']);
+        $safeAscii = preg_replace('/[^A-Za-z0-9_.-]/', '_', $filenameOrig);
+
         header('Content-Description: File Transfer');
         header('Content-Type: ' . ($doc['formato_mime'] ?: 'application/octet-stream'));
-        header('Content-Disposition: attachment; filename="' . addslashes($doc['nombre_original']) . '"');
+        header("Content-Disposition: attachment; filename=\"{$safeAscii}\"; filename*=UTF-8''" . rawurlencode($filenameOrig));
         header('Expires: 0');
-        header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+        header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0');
         header('Pragma: public');
         header('Content-Length: ' . filesize($rutaFisica));
         readfile($rutaFisica);
@@ -147,7 +145,7 @@ try {
     if ($method === 'GET') {
         $usuario = Auth::requerirAutenticacion();
 
-        // ADM no tiene acceso a documentos operativos por defecto según matriz
+        // ADM no tiene acceso a documentos operativos por defecto
         if ($usuario['rol_codigo'] === 'ADM') {
             http_response_code(403);
             echo json_encode([
@@ -158,7 +156,7 @@ try {
             exit;
         }
 
-        // Verificar permiso de búsqueda/consulta
+        // Verificar permiso de consulta/búsqueda
         if (!Auth::tienePermiso('DOCUMENTOS_BUSCAR') && !Auth::tienePermiso('AUDITORIA_CONSULTAR')) {
             http_response_code(403);
             echo json_encode([
@@ -178,7 +176,6 @@ try {
                 d.id,
                 d.codigo_doc,
                 d.nombre_original,
-                d.ruta_almacenada,
                 d.formato_mime,
                 d.tamanio_bytes,
                 d.estado_proceso,
@@ -206,30 +203,15 @@ try {
             WHERE 1=1
         ";
 
-        $params = [];
+        // Aplicar filtro de alcance centralizado según el rol
+        $filtroScope = DocumentoPermisos::obtenerFiltroDocumentosSQL($usuario, 'd');
+        $sql .= $filtroScope['sql'];
+        $params = $filtroScope['params'];
 
-        // Filtro de alcance por rol:
-        if ($usuario['rol_codigo'] === 'OPE') {
-            // Operador ve documentos de su dependencia o propios
-            $sql .= " AND (d.dependencia_id = :scope_dep OR d.usuario_id = :scope_uid)";
-            $params['scope_dep'] = (int)$usuario['dependencia_id'];
-            $params['scope_uid'] = (int)$usuario['id'];
-        } elseif ($usuario['rol_codigo'] === 'GES') {
-            // Gestor ve documentos de su dependencia
-            $sql .= " AND d.dependencia_id = :scope_dep";
-            $params['scope_dep'] = (int)$usuario['dependencia_id'];
-        } elseif ($usuario['rol_codigo'] === 'CON') {
-            // Consultor ve documentos públicos e internos
-            $sql .= " AND d.nivel_confidencialidad IN ('publico', 'interno')";
-        }
-
-        // Filtro de estado documental: vigente por defecto, salvo que se solicite expresamente
+        // Filtro de estado documental adicional si se especifica
         if (!empty($estado) && $estado !== 'todos') {
-            $sql .= " AND d.estado_documental = :estado";
-            $params['estado'] = $estado;
-        } else {
-            // Documentos anulados no aparecen en el listado operativo habitual
-            $sql .= " AND d.estado_documental = 'vigente'";
+            $sql .= " AND d.estado_documental = :estado_filtro";
+            $params['estado_filtro'] = $estado;
         }
 
         // Filtro de búsqueda textual con parámetros PDO únicos para evitar el error HY093
@@ -252,7 +234,7 @@ try {
         $stmt->execute($params);
         $documentos = $stmt->fetchAll();
 
-        // Registrar auditoría de consulta solo si hubo término de búsqueda explícito
+        // Registrar auditoría de consulta cuando hay búsqueda explícita
         if (!empty($busqueda)) {
             DocuFlowDB::registrarAuditoria(
                 (int)$usuario['id'],
@@ -282,6 +264,7 @@ try {
         if (isset($_FILES['archivo']) && $_FILES['archivo']['error'] === UPLOAD_ERR_OK) {
             $filename = basename($_FILES['archivo']['name']);
         } else {
+            $rawInput = file_get_contents('php://input');
             $input = (!empty($rawInput) ? json_decode($rawInput, true) : null) ?? $_POST;
             $filename = $input['filename'] ?? 'documento.pdf';
         }
@@ -303,7 +286,7 @@ try {
         echo json_encode([
             'ok'      => true,
             'status'  => 200,
-            'message' => 'Extracción asistida OCR completada (Modo Demostrativo para revisión)',
+            'message' => 'Extracción asistida OCR completada (Modo Demostrativo para revisión previa)',
             'data'    => [
                 'filename' => $filename,
                 'metadata' => [
@@ -312,11 +295,11 @@ try {
                     'codigo'                => $codigoSugerido,
                     'fecha'                 => date('Y-m-d'),
                     'asunto'                => 'Expediente digitalizado mediante DocuFlow AI: ' . $filename,
-                    'dependencia'           => $usuario['dependencia_nombre'] ?? 'Archivo Central - DEMO',
+                    'dependencia'           => $usuario['dependencia_nombre'] ?? 'Archivo Central',
                     'dependencia_id'        => (int)($usuario['dependencia_id'] ?? 1),
                     'nivel_confidencialidad'=> 'interno',
                     'confianza'             => 98.4,
-                    'tags'                  => ['Digitalizado', 'OCR Demostrativo', 'UNS', $tipoDocNombre]
+                    'tags'                  => ['Digitalizado', 'OCR Asistido', 'UNS', $tipoDocNombre]
                 ]
             ]
         ], JSON_UNESCAPED_UNICODE);
@@ -438,6 +421,12 @@ try {
         $destinatario = trim($_POST['destinatario'] ?? 'Archivo Central');
         $confidencial = trim($_POST['nivel_confidencialidad'] ?? 'interno');
 
+        // Validar dominio permitido de confidencialidad
+        $dominiosConfidencial = ['publico', 'interno', 'confidencial', 'restringido'];
+        if (!in_array(strtolower($confidencial), $dominiosConfidencial, true)) {
+            $confidencial = 'interno';
+        }
+
         // Validar formato de fecha (YYYY-MM-DD)
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision)) {
             $fechaEmision = date('Y-m-d');
@@ -472,17 +461,19 @@ try {
             $tipoDocId = (int)$pdo->query("SELECT id FROM tipos_documento ORDER BY id ASC LIMIT 1")->fetchColumn();
         }
 
-        // Determinar dependencia_id y usuario_id a partir de la sesión autenticada
+        // Dependencia y usuario_id se obtienen estricta e inalterablemente de la sesión autenticada
         $usuarioId     = (int)$usuario['id'];
         $dependenciaId = (int)$usuario['dependencia_id'];
 
-        // Si el rol es GES y envía una dependencia autorizada, validar que exista
-        if ($usuario['rol_codigo'] === 'GES' && !empty($_POST['dependencia_id'])) {
-            $chkDep = $pdo->prepare("SELECT id FROM dependencias WHERE id = :did LIMIT 1");
-            $chkDep->execute(['did' => (int)$_POST['dependencia_id']]);
-            if ($validDep = $chkDep->fetchColumn()) {
-                $dependenciaId = (int)$validDep;
-            }
+        // Comprobación de permiso centralizado para registrar
+        if (!DocumentoPermisos::puedeRegistrar($usuario, $dependenciaId)) {
+            http_response_code(403);
+            echo json_encode([
+                'ok'      => false,
+                'status'  => 403,
+                'message' => 'Acceso denegado. No está autorizado para registrar documentos en esta dependencia.'
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
         }
 
         // Generar nombre de almacenamiento interno seguro y único
@@ -541,7 +532,6 @@ try {
             }
 
             $stmtDoc->execute($paramsDoc);
-
             $documentoId = (int)$pdo->lastInsertId();
 
             // 2. Insertar en tabla metadatos_documento
@@ -565,7 +555,7 @@ try {
                 'resumen'      => $resumen
             ]);
 
-            // 3. Insertar chunk en chunks_documento para consultas RAG
+            // 3. Insertar chunk en chunks_documento para consultas contextuales
             $stmtChunk = $pdo->prepare("
                 INSERT INTO chunks_documento (documento_id, numero_chunk, contenido_texto)
                 VALUES (:doc_id, 1, :texto)
@@ -590,7 +580,7 @@ try {
                 ]
             );
 
-            // Confirmar transacción
+            // Confirmar transacción atómica
             $pdo->commit();
 
             http_response_code(201);
@@ -603,7 +593,6 @@ try {
                     'codigo_doc'      => $codigoDoc,
                     'nombre_original' => $nombreOrig,
                     'tamanio_bytes'   => $tamanio,
-                    'ruta_almacenada' => $rutaAlmacenada,
                     'sha256'          => $sha256
                 ]
             ], JSON_UNESCAPED_UNICODE);
@@ -612,7 +601,7 @@ try {
         } catch (Exception $txException) {
             $pdo->rollBack();
 
-            // Si falla la transacción, eliminar el archivo físico recién subido para evitar archivos huérfanos
+            // Eliminar archivo recién subido en caso de falla de transacción (evita archivos huérfanos)
             if (file_exists($rutaFisicaCompleta)) {
                 @unlink($rutaFisicaCompleta);
             }

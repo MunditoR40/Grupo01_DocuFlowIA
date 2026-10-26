@@ -1,0 +1,29 @@
+# ===============================================================
+# DocuFlow AI — Configuración de Seguridad Apache (Root)
+# ===============================================================
+
+# 1. Deshabilitar listado de directorios
+Options -Indexes
+
+# 2. Bloquear acceso a .git y archivos/directorios ocultos
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule (^|/)\. - [F,L]
+</IfModule>
+
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# 3. Bloquear acceso directo a archivos de base de datos, respaldos y logs
+<FilesMatch "(?i)\.(sql|bak|log|zip|jsonl|ini|yml|yaml)$">
+    Require all denied
+</FilesMatch>
+
+# 4. Cabeceras de seguridad HTTP básicas
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

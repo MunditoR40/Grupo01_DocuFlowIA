@@ -1,9 +1,7 @@
-# DocuFlow AI - Protección de archivos subidos
-# Evita la ejecución directa de scripts maliciosos en la carpeta de uploads
+# DocuFlow AI — Protección estricta de documentos subidos
+# Deniega el acceso HTTP directo a cualquier archivo (PDF, imágenes, DOCX, etc.)
+# Las descargas deben realizarse exclusivamente a través del endpoint controlado en PHP:
+# php/api/documentos.php?action=download&id=...
 
-<FilesMatch "(?i)\.(php|phtml|php3|php4|php5|php7|php8|phps|pht|phar|sh|pl|cgi|exe)$">
-    Order Deny,Allow
-    Deny from all
-</FilesMatch>
-
+Require all denied
 Options -Indexes

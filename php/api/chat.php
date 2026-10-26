@@ -1,13 +1,13 @@
 <?php
 /**
- * API de Chatbot RAG - DocuFlow AI
- * Búsqueda contextual sobre chunks_documento y metadatos_documento en MySQL 3307
+ * API de Asistente de Consulta Contextual - DocuFlow AI
+ * Búsqueda de coincidencia textual sobre chunks_documento y metadatos_documento en MySQL 3307
+ * Filtrado estricto por ámbito de usuario, dependencia y nivel de confidencialidad
  */
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
@@ -20,14 +20,14 @@ require_once __DIR__ . '/../auth_helper.php';
 
 $rawInput = file_get_contents('php://input');
 $input = (!empty($rawInput) ? json_decode($rawInput, true) : null) ?? $_POST ?? [];
-$query = trim($input['query'] ?? '');
+$query = trim($input['query'] ?? ($input['mensaje'] ?? ($input['message'] ?? '')));
 
 if (empty($query)) {
     http_response_code(400);
     echo json_encode([
         'ok'      => false,
         'status'  => 400,
-        'message' => 'Por favor ingrese una pregunta para consultar el asistente RAG.'
+        'message' => 'Por favor ingrese una consulta para buscar en el repositorio.'
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -36,12 +36,17 @@ try {
     $pdo = Database::conectar();
     Auth::iniciarSesion();
 
+    // 1. Validar sesión y permiso específico
     $usuario = Auth::requerirPermiso('RAG_CONSULTAR');
 
-    // Búsqueda de coincidencia en chunks_documento y metadatos_documento
+    // 2. Obtener filtro SQL estricto según rol, dependencia y confidencialidad
+    $filtroScope = DocumentoPermisos::obtenerFiltroChatbotSQL($usuario, 'd');
+    $whereScope = $filtroScope['sql'];
+    $params = $filtroScope['params'];
+
+    // 3. Procesar términos de búsqueda para consulta parametrizada
     $terminos = preg_split('/\s+/', $query);
-    $condiciones = [];
-    $params = [];
+    $condicionesTerminos = [];
 
     $paramIndex = 0;
     foreach ($terminos as $termino) {
@@ -50,7 +55,7 @@ try {
             $cKey = "c_term_" . $paramIndex;
             $mKey = "m_term_" . $paramIndex;
             $dKey = "d_term_" . $paramIndex;
-            $condiciones[] = "(c.contenido_texto LIKE :$cKey OR m.asunto LIKE :$mKey OR d.codigo_doc LIKE :$dKey)";
+            $condicionesTerminos[] = "(c.contenido_texto LIKE :$cKey OR m.asunto LIKE :$mKey OR d.codigo_doc LIKE :$dKey)";
             $params[$cKey] = "%$termLimpio%";
             $params[$mKey] = "%$termLimpio%";
             $params[$dKey] = "%$termLimpio%";
@@ -58,8 +63,9 @@ try {
         }
     }
 
-    $whereSql = !empty($condiciones) ? implode(' OR ', $condiciones) : "1=1";
+    $whereTerms = !empty($condicionesTerminos) ? " AND (" . implode(' OR ', $condicionesTerminos) . ") " : "";
 
+    // 4. Consulta contextual acotada exclusivamente a documentos autorizados
     $stmt = $pdo->prepare("
         SELECT d.id, d.codigo_doc, d.nombre_original,
                m.asunto, m.resumen_contenido,
@@ -69,7 +75,8 @@ try {
         LEFT JOIN metadatos_documento m ON m.documento_id = d.id
         LEFT JOIN chunks_documento c ON c.documento_id = d.id
         LEFT JOIN tipos_documento t ON t.id = d.tipo_doc_id
-        WHERE d.estado_documental = 'vigente' AND ($whereSql)
+        WHERE 1=1 {$whereScope} {$whereTerms}
+        ORDER BY d.id DESC
         LIMIT 3
     ");
     $stmt->execute($params);
@@ -84,22 +91,21 @@ try {
         }, $coincidencias);
 
         $primer = $coincidencias[0];
-        $answer = "Encontré información relevante en el expediente <strong>" . htmlspecialchars($primer['codigo_doc']) . "</strong> (" . htmlspecialchars($primer['tipo_doc']) . ").<br>"
+        $answer = "Coincidencia contextual autorizada en el expediente <strong>" . htmlspecialchars($primer['codigo_doc']) . "</strong> (" . htmlspecialchars($primer['tipo_doc']) . ").<br>"
                 . "<em>Asunto:</em> " . htmlspecialchars($primer['asunto'] ?? 'No especificado') . ".<br>"
-                . "<span class='text-xs text-brand-400'>Fuente: Documentos indexados en MySQL (Puerto 3307).</span>";
+                . "<span class='text-xs text-brand-400'>Búsqueda contextual en base de datos MySQL (puerto 3307).</span>";
     } else {
-        $answer = "No se hallaron coincidencias en el repositorio para <em>\"" . htmlspecialchars($query) . "\"</em>. Prueba consultar por términos como <em>\"oficio\"</em>, <em>\"recursos humanos\"</em> o <em>\"demo\"</em>.";
+        $answer = "No se encontraron expedientes autorizados coincidentes para <em>\"" . htmlspecialchars($query) . "\"</em> dentro de su ámbito (" . htmlspecialchars($usuario['rol_codigo']) . " - " . htmlspecialchars($usuario['dependencia_nombre']) . ").";
     }
 
-    // Registrar en auditoria_acciones
+    // Registrar en auditoria_acciones sin exponer texto sensible
     DocuFlowDB::registrarAuditoria(
         (int)$usuario['id'],
         !empty($coincidencias) ? (int)$coincidencias[0]['id'] : null,
         'DOCUMENTO_CONSULTADO',
         [
-            'origen'           => 'chat_rag',
-            'query'            => $query,
-            'resultados_count' => count($coincidencias)
+            'canal'            => 'asistente_contextual',
+            'coincidencias'    => count($coincidencias)
         ]
     );
 
@@ -120,6 +126,6 @@ try {
     echo json_encode([
         'ok'      => false,
         'status'  => 500,
-        'message' => 'Error interno al consultar el asistente RAG.'
+        'message' => 'Error interno al consultar el asistente contextual.'
     ], JSON_UNESCAPED_UNICODE);
 }

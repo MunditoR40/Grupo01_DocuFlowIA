@@ -2,7 +2,7 @@
    DocuFlow AI — CAPA DE COMUNICACIÓN API CON PERSISTENCIA REAL (MySQL 3307)
    ------------------------------------------------------------------
    Peticiones fetch() reales hacia los endpoints nativos PHP en php/api/...
-   Sin respuestas ficticias ni simulaciones de guardado.
+   Soporte robusto de parámetros de búsqueda (?q=...&estado=...) con URLSearchParams.
    ================================================================== */
 'use strict';
 
@@ -23,6 +23,35 @@ const API_ENDPOINTS = {
     '/api/chat/rag': 'php/api/chat.php'
 };
 
+/**
+ * Resuelve rutas abstractas (ej: /api/documents?q=oficio) al script real en php/api/...
+ * combinando adecuadamente los parámetros de consulta mediante URLSearchParams.
+ */
+function resolveApiTarget(endpoint) {
+    if (!endpoint) return 'php/api/documentos.php';
+
+    // Separar path de query string
+    const [pathPart, queryPart] = endpoint.split('?');
+    const mapped = API_ENDPOINTS[pathPart] || (pathPart.startsWith('php/') ? pathPart : null);
+
+    if (mapped) {
+        const [targetPath, targetQuery] = mapped.split('?');
+        const params = new URLSearchParams(targetQuery || '');
+
+        if (queryPart) {
+            const extraParams = new URLSearchParams(queryPart);
+            for (const [key, value] of extraParams.entries()) {
+                params.set(key, value);
+            }
+        }
+
+        const queryString = params.toString();
+        return queryString ? `${targetPath}?${queryString}` : targetPath;
+    }
+
+    return endpoint;
+}
+
 window.apiFetch = async function (endpoint, options = {}) {
     const method = options.method || 'GET';
     const body = options.body || null;
@@ -37,11 +66,11 @@ window.apiFetch = async function (endpoint, options = {}) {
         throw errObj;
     }
 
-    const phpTarget = API_ENDPOINTS[endpoint] || (endpoint.startsWith('php/') ? endpoint : endpoint);
+    const phpTarget = resolveApiTarget(endpoint);
 
     const fetchOptions = {
         method: method,
-        credentials: 'same-origin', // Fundamental para enviar y mantener la sesión PHP (PHPSESSID)
+        credentials: 'same-origin', // Envía y conserva la cookie de sesión PHP (PHPSESSID)
         headers: {
             'Accept': 'application/json'
         }
@@ -55,7 +84,7 @@ window.apiFetch = async function (endpoint, options = {}) {
 
     if (body) {
         if (body instanceof FormData) {
-            // FormData: el navegador configura el Content-Type y boundary automáticamente
+            // FormData: el navegador configura automáticamente multipart/form-data con boundary
             fetchOptions.body = body;
         } else {
             fetchOptions.headers['Content-Type'] = 'application/json';
@@ -85,20 +114,18 @@ window.apiFetch = async function (endpoint, options = {}) {
         };
 
     } catch (error) {
-        // Si el error ya fue estructurado por el bloque de respuesta HTTP, relanzarlo
         if (error && error.status !== undefined) {
             throw error;
         }
 
-        // Si es un error de red o conexión caída
         console.error('[DocuFlow API Error]', error);
         throw {
             ok: false,
             status: 0,
-            message: 'No se pudo conectar con el servidor web o el servicio MySQL (puerto 3307). Verifique que Apache y MySQL estén activos en XAMPP.'
+            message: 'No se pudo conectar con el servidor web o el servicio MySQL (puerto 3307).'
         };
     }
 };
 
-// Mantener fakeFetch como alias de apiFetch para compatibilidad con llamadas existentes
+// Alias para compatibilidad con código legado
 window.fakeFetch = window.apiFetch;

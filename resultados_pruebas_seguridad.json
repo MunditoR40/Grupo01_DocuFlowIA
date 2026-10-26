@@ -1,0 +1,138 @@
+[
+    {
+        "num": 1,
+        "nombre": "Acceso directo por HTTP a archivo en uploads\/ sin pasar por PHP",
+        "esperado": "HTTP 403 Forbidden",
+        "obtenido": "HTTP 403",
+        "estado": "APROBADO",
+        "detalles": "Apache 2.4 deniega el acceso directo vía uploads\/.htaccess (Require all denied)."
+    },
+    {
+        "num": 2,
+        "nombre": "Descarga de documento vía endpoint sin sesión autenticada",
+        "esperado": "HTTP 401 Unauthorized",
+        "obtenido": "HTTP 401",
+        "estado": "APROBADO",
+        "detalles": "El endpoint valida Auth::requerirAutenticacion() antes de servir cualquier flujo binario."
+    },
+    {
+        "num": 3,
+        "nombre": "Operador (OPE 2) intenta descargar documento de otro operador (OPE 1)",
+        "esperado": "HTTP 403 Forbidden",
+        "obtenido": "HTTP 403",
+        "estado": "APROBADO",
+        "detalles": "DocumentoPermisos::puedeDescargar() impide que OPE descargue archivos de otros autores (Acceso denegado. No tiene autorización para descargar este documento según las políticas de rol, dependencia y confidencialidad.)."
+    },
+    {
+        "num": 4,
+        "nombre": "Gestor (GES 1) intenta descargar documento de otra dependencia (Dep 2)",
+        "esperado": "HTTP 403 Forbidden",
+        "obtenido": "HTTP 403",
+        "estado": "APROBADO",
+        "detalles": "DocumentoPermisos::puedeDescargar() restringe al Gestor estrictamente a su ámbito de dependencia."
+    },
+    {
+        "num": 5,
+        "nombre": "Consultor (CON 1) intenta descargar documento confidencial",
+        "esperado": "HTTP 403 Forbidden",
+        "obtenido": "HTTP 403",
+        "estado": "APROBADO",
+        "detalles": "DocumentoPermisos::puedeDescargar() bloquea descarga de confidenciales para rol CON (Acceso denegado. No tiene autorización para descargar este documento según las políticas de rol, dependencia y confidencialidad.)."
+    },
+    {
+        "num": 6,
+        "nombre": "Chatbot: Consultor (CON) consulta contenido de documento confidencial",
+        "esperado": "HTTP 200 con 0 fragmentos de documentos confidenciales",
+        "obtenido": "HTTP 200 (0 fuentes devueltas, contiene confidencial: NO)",
+        "estado": "APROBADO",
+        "detalles": "DocumentoPermisos::obtenerFiltroChatbotSQL() excluye confidenciales para CON; no hay fuga de contexto."
+    },
+    {
+        "num": 7,
+        "nombre": "Administrador (ADM) intenta descargar contenido de documento operativo",
+        "esperado": "HTTP 403 Forbidden",
+        "obtenido": "HTTP 403",
+        "estado": "APROBADO",
+        "detalles": "Matriz de seguridad: ADM administra usuarios y eventos técnicos, sin acceso a contenido documental por defecto."
+    },
+    {
+        "num": 8,
+        "nombre": "Auditor (AUD) intenta descargar archivo físico de documento",
+        "esperado": "HTTP 403 Forbidden",
+        "obtenido": "HTTP 403",
+        "estado": "APROBADO",
+        "detalles": "Matriz de seguridad: AUD audita metadatos, historial y eventos, sin descarga de archivos originales."
+    },
+    {
+        "num": 9,
+        "nombre": "Auditoría: Gestor (GES 1) consulta registros de eventos",
+        "esperado": "HTTP 200 con registros limitados estrictamente a su dependencia (Dep 1)",
+        "obtenido": "HTTP 200 (46 registros, dependencias ajenas: NO)",
+        "estado": "APROBADO",
+        "detalles": "DocumentoPermisos::obtenerFiltroAuditoriaSQL() restringe a GES a los logs de su dependencia."
+    },
+    {
+        "num": 10,
+        "nombre": "Estadísticas: Consultor (CON) consulta endpoint \/api\/resumen",
+        "esperado": "HTTP 403 Forbidden",
+        "obtenido": "HTTP 403",
+        "estado": "APROBADO",
+        "detalles": "DocumentoPermisos::puedeConsultarEstadisticas() bloquea a CON; rol destinado a consulta documental puntual."
+    },
+    {
+        "num": 11,
+        "nombre": "Búsqueda en repositorio mediante parámetro ?q=oficio hacia MySQL",
+        "esperado": "HTTP 200 con lista de documentos filtrados por término",
+        "obtenido": "HTTP 200 (Total devueltos: 4)",
+        "estado": "APROBADO",
+        "detalles": "Consulta parametrizada PDO ejecutada exitosamente con búsqueda de coincidencias."
+    },
+    {
+        "num": 12,
+        "nombre": "Subida autorizada de documento y metadatos por Operador (OPE 1)",
+        "esperado": "HTTP 201 Created con ID autoincremental y hash SHA-256 generado",
+        "obtenido": "HTTP 201 (Doc ID: 11, SHA256: 16006f351cfd55ad...)",
+        "estado": "APROBADO",
+        "detalles": "Documento persistido en MySQL, archivo binario almacenado y auditoría generada en transacción atómica."
+    },
+    {
+        "num": 13,
+        "nombre": "Recarga del repositorio documental para verificar persistencia real",
+        "esperado": "HTTP 200 y presencia del documento OF-AUT-20261026-3914 en la lista",
+        "obtenido": "HTTP 200 (Encontrado en listado: SI)",
+        "estado": "APROBADO",
+        "detalles": "El listado consulta en tiempo real MySQL; el nuevo registro se visualiza inmediatamente."
+    },
+    {
+        "num": 14,
+        "nombre": "Validación de tamaño máximo de archivo (> 20 MB)",
+        "esperado": "HTTP 400 Bad Request o 413 Payload Too Large",
+        "obtenido": "HTTP 400 (El archivo supera el tamaño máximo permitido de 20 MB o se encuentra vacío.)",
+        "estado": "APROBADO",
+        "detalles": "El servidor valida el tamaño del archivo físico rechazando cargas excesivas."
+    },
+    {
+        "num": 15,
+        "nombre": "Validación de tipo MIME y extensión permitida (.exe \/ no documental)",
+        "esperado": "HTTP 400 Bad Request",
+        "obtenido": "HTTP 400 (Extensión no permitida. Solo se aceptan archivos PDF, JPG, JPEG, PNG y DOCX.)",
+        "estado": "APROBADO",
+        "detalles": "El endpoint valida extensión y finfo_file MIME; rechaza ejecutables y archivos peligrosos."
+    },
+    {
+        "num": 16,
+        "nombre": "Atomicidad transaccional (Rollback ante error y eliminación de archivo físico)",
+        "esperado": "Rollback ejecutado, registro ausente en MySQL y archivo físico eliminado",
+        "obtenido": "Rollback: SI, En DB: NO, Archivo en disco: ELIMINADO",
+        "estado": "APROBADO",
+        "detalles": "PDO Transaction garantiza que no quedan registros parciales ni archivos huérfanos ante excepciones."
+    },
+    {
+        "num": 17,
+        "nombre": "Acceso directo por navegador a .git\/config y archivos .sql de migraciones",
+        "esperado": "HTTP 403 Forbidden en ambas rutas",
+        "obtenido": ".git\/config: HTTP 403 | .sql: HTTP 403",
+        "estado": "APROBADO",
+        "detalles": "Reglas mod_rewrite y FilesMatch en root .htaccess bloquean metadatos de Git y código SQL interno."
+    }
+]

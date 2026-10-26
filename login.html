@@ -129,21 +129,35 @@
             <div class="mt-6 p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs space-y-2.5">
                 <div class="flex items-center justify-between text-gray-300">
                     <span class="font-bold flex items-center gap-1.5 text-yellow-400">
-                        <i class="fa-solid fa-key"></i> Credenciales en MySQL (Puerto 3307):
+                        <i class="fa-solid fa-key"></i> Roles de Demostración (MySQL 3307):
                     </span>
+                    <span class="text-[10px] text-gray-400">Clic para cargar</span>
                 </div>
-                <div class="grid grid-cols-2 gap-2 pt-1">
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 pt-1">
                     <button type="button" onclick="fillDemoCredentials('ope')"
-                        class="px-2.5 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-left transition-colors">
+                        class="p-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-left transition-colors">
                         <div class="font-bold text-[11px] text-white">Operador (OPE)</div>
-                        <div class="text-[10px] text-gray-300 truncate">operador.demo@...</div>
-                        <div class="text-[9px] text-emerald-400 mt-0.5">Puede registrar docs</div>
+                        <div class="text-[9px] text-emerald-400">Registra propios</div>
+                    </button>
+                    <button type="button" onclick="fillDemoCredentials('ges')"
+                        class="p-2 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-300 text-left transition-colors">
+                        <div class="font-bold text-[11px] text-white">Gestor (GES)</div>
+                        <div class="text-[9px] text-blue-300">Ámbito depend.</div>
+                    </button>
+                    <button type="button" onclick="fillDemoCredentials('con')"
+                        class="p-2 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/30 text-teal-300 text-left transition-colors">
+                        <div class="font-bold text-[11px] text-white">Consultor (CON)</div>
+                        <div class="text-[9px] text-teal-300">Solo lectura públ.</div>
+                    </button>
+                    <button type="button" onclick="fillDemoCredentials('aud')"
+                        class="p-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 text-left transition-colors">
+                        <div class="font-bold text-[11px] text-white">Auditor (AUD)</div>
+                        <div class="text-[9px] text-amber-300">Trazabilidad/Logs</div>
                     </button>
                     <button type="button" onclick="fillDemoCredentials('adm')"
-                        class="px-2.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 text-left transition-colors">
+                        class="p-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 text-left transition-colors col-span-2 sm:col-span-1">
                         <div class="font-bold text-[11px] text-white">Admin (ADM)</div>
-                        <div class="text-[10px] text-gray-300 truncate">admin@docuflow.ai</div>
-                        <div class="text-[9px] text-amber-400 mt-0.5">Gestión técnica</div>
+                        <div class="text-[9px] text-purple-300">Gestión técnica</div>
                     </button>
                 </div>
             </div>

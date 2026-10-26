@@ -65,13 +65,17 @@ window.fillDemoCredentials = function (role = 'ope') {
     const pwdInput = document.getElementById('login-password');
     if (!emailInput || !pwdInput) return;
 
-    if (role === 'ope') {
-        emailInput.value = 'operador.demo@docuflow.test';
-        pwdInput.value = 'DocuFlowDemo2026!';
-    } else {
-        emailInput.value = 'admin@docuflow.ai';
-        pwdInput.value = 'DocuFlow2026';
-    }
+    const credentialsMap = {
+        ope: { email: 'operador.demo@docuflow.test', pass: 'DocuFlowDemo2026!' },
+        ges: { email: 'gestor.demo@docuflow.test', pass: 'DocuFlowDemo2026!' },
+        con: { email: 'consultor.demo@docuflow.test', pass: 'DocuFlowDemo2026!' },
+        aud: { email: 'auditor.demo@docuflow.test', pass: 'DocuFlowDemo2026!' },
+        adm: { email: 'admin@docuflow.ai', pass: 'DocuFlow2026' }
+    };
+
+    const cred = credentialsMap[role] || credentialsMap.ope;
+    emailInput.value = cred.email;
+    pwdInput.value = cred.pass;
     window.validateEmailRealTime(emailInput);
 };
 

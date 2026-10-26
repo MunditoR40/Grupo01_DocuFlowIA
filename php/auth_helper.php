@@ -1,6 +1,6 @@
 <?php
 /**
- * DocuFlow AI — Helper de Autenticación, Sesiones Seguras y Permisos
+ * DocuFlow AI — Helper de Autenticación, Sesiones Seguras y Permisos Centralizados
  * Compatible con PHP 8 nativo y PDO
  */
 
@@ -52,7 +52,7 @@ class Auth {
     }
 
     /**
-     * Obtiene el ID del usuario en sesión o lanza excepción/corta ejecución.
+     * Obtiene el ID del usuario en sesión o null.
      */
     public static function usuarioId(): ?int {
         $u = self::usuario();
@@ -183,5 +183,257 @@ class Auth {
             exit;
         }
         return $u;
+    }
+}
+
+/**
+ * Servicio Centralizado de Autorización y Permisos Documentales
+ * Aplica rigurosamente la matriz de los 5 roles y restricciones de confidencialidad y ámbito.
+ */
+class DocumentoPermisos {
+
+    /**
+     * Determina si el usuario puede consultar un documento específico.
+     */
+    public static function puedeConsultar(array $usuario, array $doc): bool {
+        if (($doc['estado_documental'] ?? 'vigente') === 'anulado') {
+            return false;
+        }
+
+        $rol = $usuario['rol_codigo'] ?? '';
+        switch ($rol) {
+            case 'ADM':
+                // ADM: sin contenido documental por defecto
+                return false;
+            case 'OPE':
+                // OPE: exclusivamente sobre documentos propios
+                return (int)$doc['usuario_id'] === (int)$usuario['id'];
+            case 'GES':
+                // GES: exclusivamente sobre documentos de su dependencia
+                return (int)$doc['dependencia_id'] === (int)$usuario['dependencia_id'];
+            case 'CON':
+                // CON: debe cumplir tanto el filtro de dependencia como el de confidencialidad (publico/interno)
+                $conf = strtolower($doc['nivel_confidencialidad'] ?? 'interno');
+                $permitida = in_array($conf, ['publico', 'interno'], true);
+                return ((int)$doc['dependencia_id'] === (int)$usuario['dependencia_id']) && $permitida;
+            case 'AUD':
+                // AUD: consulta de metadatos permitida para fines de auditoría
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Determina si el usuario puede descargar el archivo físico de un documento.
+     */
+    public static function puedeDescargar(array $usuario, array $doc): bool {
+        if (!Auth::tienePermiso('DOCUMENTOS_DESCARGAR')) {
+            return false;
+        }
+
+        // Documentos anulados se excluyen de descarga operativa
+        if (($doc['estado_documental'] ?? 'vigente') === 'anulado') {
+            return false;
+        }
+
+        $rol = $usuario['rol_codigo'] ?? '';
+        switch ($rol) {
+            case 'ADM':
+                // ADM: no accede a descargas de contenido documental por defecto
+                return false;
+            case 'AUD':
+                // AUD: inspecciona metadatos y auditoría; sin descargar contenido documental
+                return false;
+            case 'OPE':
+                // OPE: no debe descargar documentos ajenos aunque pertenezcan a su dependencia
+                return (int)$doc['usuario_id'] === (int)$usuario['id'];
+            case 'GES':
+                // GES: no debe administrar ni descargar documentos de otras dependencias
+                return (int)$doc['dependencia_id'] === (int)$usuario['dependencia_id'];
+            case 'CON':
+                // CON: debe pertenecer a su dependencia y no ser confidencial
+                $conf = strtolower($doc['nivel_confidencialidad'] ?? 'interno');
+                $permitida = in_array($conf, ['publico', 'interno'], true);
+                return ((int)$doc['dependencia_id'] === (int)$usuario['dependencia_id']) && $permitida;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Determina si el usuario puede registrar un documento en una dependencia dada.
+     */
+    public static function puedeRegistrar(array $usuario, ?int $dependenciaId = null): bool {
+        if (!Auth::tienePermiso('DOCUMENTOS_REGISTRAR')) {
+            return false;
+        }
+        $rol = $usuario['rol_codigo'] ?? '';
+        if ($rol === 'OPE') {
+            if ($dependenciaId !== null && (int)$dependenciaId !== (int)$usuario['dependencia_id']) {
+                return false;
+            }
+            return true;
+        }
+        if ($rol === 'GES') {
+            if ($dependenciaId !== null && (int)$dependenciaId !== (int)$usuario['dependencia_id']) {
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Determina si el usuario puede anular un documento.
+     */
+    public static function puedeAnular(array $usuario, array $doc): bool {
+        if (!Auth::tienePermiso('DOCUMENTOS_ANULAR')) {
+            return false;
+        }
+        $rol = $usuario['rol_codigo'] ?? '';
+        if ($rol === 'GES') {
+            return (int)$doc['dependencia_id'] === (int)$usuario['dependencia_id'];
+        }
+        return false;
+    }
+
+    /**
+     * Determina si el usuario puede consultar la bitácora de auditoría.
+     */
+    public static function puedeConsultarAuditoria(array $usuario): bool {
+        if (!Auth::tienePermiso('AUDITORIA_CONSULTAR')) {
+            return false;
+        }
+        $rol = $usuario['rol_codigo'] ?? '';
+        // Solo AUD, GES y ADM están autorizados a consultar auditoría según su ámbito
+        return in_array($rol, ['AUD', 'GES', 'ADM'], true);
+    }
+
+    /**
+     * Determina si el usuario puede consultar el resumen de estadísticas.
+     */
+    public static function puedeConsultarEstadisticas(array $usuario): bool {
+        if (!Auth::tienePermiso('ESTADISTICAS_VER')) {
+            return false;
+        }
+        $rol = $usuario['rol_codigo'] ?? '';
+        // CON no tiene autorización para métricas estadísticas operativas
+        if ($rol === 'CON') {
+            return false;
+        }
+        return in_array($rol, ['OPE', 'GES', 'ADM', 'AUD'], true);
+    }
+
+    /**
+     * Genera la cláusula SQL WHERE y parámetros PDO para filtrar listados según el rol y ámbito.
+     */
+    public static function obtenerFiltroDocumentosSQL(array $usuario, string $alias = 'd'): array {
+        $rol = $usuario['rol_codigo'] ?? '';
+        $sql = " AND {$alias}.estado_documental = 'vigente' ";
+        $params = [];
+
+        switch ($rol) {
+            case 'OPE':
+                // OPE ve únicamente sus propios documentos
+                $sql .= " AND {$alias}.usuario_id = :scope_uid ";
+                $params['scope_uid'] = (int)$usuario['id'];
+                break;
+            case 'GES':
+                // GES ve los documentos de su dependencia
+                $sql .= " AND {$alias}.dependencia_id = :scope_dep ";
+                $params['scope_dep'] = (int)$usuario['dependencia_id'];
+                break;
+            case 'CON':
+                // CON ve documentos de su dependencia y con confidencialidad permitida
+                $sql .= " AND {$alias}.dependencia_id = :scope_dep AND {$alias}.nivel_confidencialidad IN ('publico', 'interno') ";
+                $params['scope_dep'] = (int)$usuario['dependencia_id'];
+                break;
+            case 'AUD':
+                // AUD ve metadatos de los documentos vigentes para auditoría
+                break;
+            case 'ADM':
+            default:
+                // ADM no tiene acceso a contenido documental por defecto
+                $sql .= " AND 1=0 ";
+                break;
+        }
+
+        return ['sql' => $sql, 'params' => $params];
+    }
+
+    /**
+     * Genera la cláusula SQL WHERE y parámetros PDO para el Chatbot contextual.
+     */
+    public static function obtenerFiltroChatbotSQL(array $usuario, string $alias = 'd'): array {
+        if (!Auth::tienePermiso('RAG_CONSULTAR')) {
+            return ['sql' => " AND 1=0 ", 'params' => []];
+        }
+
+        $rol = $usuario['rol_codigo'] ?? '';
+        $sql = " AND {$alias}.estado_documental = 'vigente' ";
+        $params = [];
+
+        switch ($rol) {
+            case 'OPE':
+                // OPE solo consulta sobre sus propios documentos
+                $sql .= " AND {$alias}.usuario_id = :chat_scope_uid ";
+                $params['chat_scope_uid'] = (int)$usuario['id'];
+                break;
+            case 'GES':
+                // GES solo consulta sobre documentos de su dependencia
+                $sql .= " AND {$alias}.dependencia_id = :chat_scope_dep ";
+                $params['chat_scope_dep'] = (int)$usuario['dependencia_id'];
+                break;
+            case 'CON':
+                // CON consulta sobre su dependencia y documentos no confidenciales
+                $sql .= " AND {$alias}.dependencia_id = :chat_scope_dep AND {$alias}.nivel_confidencialidad IN ('publico', 'interno') ";
+                $params['chat_scope_dep'] = (int)$usuario['dependencia_id'];
+                break;
+            case 'ADM':
+            case 'AUD':
+            default:
+                // ADM y AUD no tienen búsqueda de contenido documental
+                $sql .= " AND 1=0 ";
+                break;
+        }
+
+        return ['sql' => $sql, 'params' => $params];
+    }
+
+    /**
+     * Genera la cláusula SQL WHERE y parámetros PDO para Auditoría según el rol.
+     */
+    public static function obtenerFiltroAuditoriaSQL(array $usuario, string $alias = 'a'): array {
+        if (!Auth::tienePermiso('AUDITORIA_CONSULTAR')) {
+            return ['sql' => " 1=0 ", 'params' => []];
+        }
+
+        $rol = $usuario['rol_codigo'] ?? '';
+        $params = [];
+
+        switch ($rol) {
+            case 'AUD':
+                // AUD consulta todas las trazas del sistema
+                $sql = " 1=1 ";
+                break;
+            case 'ADM':
+                // ADM: solo eventos técnicos/administrativos o sin documento asociado
+                $sql = " ({$alias}.documento_id IS NULL OR {$alias}.accion IN ('LOGIN', 'LOGOUT', 'USUARIO_CREADO', 'USUARIO_MODIFICADO', 'INSERCION_SQL_DEMO')) ";
+                break;
+            case 'GES':
+                // GES: operaciones sobre documentos de su dependencia o usuarios de su dependencia
+                $sql = " ({$alias}.documento_id IN (SELECT id FROM documentos WHERE dependencia_id = :aud_dep) OR {$alias}.usuario_id IN (SELECT id FROM usuarios WHERE dependencia_id = :aud_dep_u)) ";
+                $params['aud_dep'] = (int)$usuario['dependencia_id'];
+                $params['aud_dep_u'] = (int)$usuario['dependencia_id'];
+                break;
+            case 'OPE':
+            case 'CON':
+            default:
+                $sql = " 1=0 ";
+                break;
+        }
+
+        return ['sql' => $sql, 'params' => $params];
     }
 }
