@@ -1,30 +1,31 @@
 /* ==================================================================
-   DocuFlow AI — CHATBOT RAG CONTEXTUAL (Respuestas Oficiales del PDF)
+   DocuFlow AI — CHATBOT RAG CONTEXTUAL (MySQL 3307)
    ------------------------------------------------------------------
-   Script clásico: las funciones y constantes de nivel superior quedan
-   disponibles de forma global para el resto de archivos y para los
-   atributos onclick/oninput del HTML.
+   Consultas contextuales sobre chunks_documento y metadatos_documento
    ================================================================== */
 'use strict';
 
 // ═══════════════════════════════════════════════════════
-// 10. CHATBOT RAG CONTEXTUAL (Respuestas Oficiales del PDF)
+// 10. CHATBOT RAG CONTEXTUAL
 // ═══════════════════════════════════════════════════════
+
 window.toggleChatbot = () => {
     const win = document.getElementById('chat-window');
     const btn = document.getElementById('chat-toggle-btn');
     const icon = document.getElementById('chat-toggle-icon');
 
+    if (!win) return;
     const isHidden = win.classList.contains('hidden-view');
     if (isHidden) {
         win.classList.remove('hidden-view');
-        btn.classList.remove('chat-btn-pulse');
-        icon.className = 'fa-solid fa-xmark text-lg';
-        document.getElementById('chat-input').focus();
+        if (btn) btn.classList.remove('chat-btn-pulse');
+        if (icon) icon.className = 'fa-solid fa-xmark text-lg';
+        const inp = document.getElementById('chat-input');
+        if (inp) inp.focus();
     } else {
         win.classList.add('hidden-view');
-        btn.classList.add('chat-btn-pulse');
-        icon.className = 'fa-solid fa-robot text-xl';
+        if (btn) btn.classList.add('chat-btn-pulse');
+        if (icon) icon.className = 'fa-solid fa-robot text-xl';
     }
 };
 
@@ -35,6 +36,7 @@ window.handleChatSubmit = async (e) => {
     if (!query) return;
 
     const cont = document.getElementById('chat-messages');
+    if (!cont) return;
 
     // Mensaje del usuario
     cont.innerHTML += `
@@ -47,22 +49,23 @@ window.handleChatSubmit = async (e) => {
     inp.value = '';
     cont.scrollTop = cont.scrollHeight;
 
-    // Indicador de "buscando en base vectorial RAG"
+    // Indicador de búsqueda en MySQL
     const typingId = 'typing-' + Date.now();
     cont.innerHTML += `
         <div id="${typingId}" class="flex gap-2 items-center text-gray-400 text-[11px] animate-pulse">
-            <i class="fa-solid fa-circle-notch fa-spin text-brand-500"></i> Consultando base vectorial RAG (fakeFetch)...
+            <i class="fa-solid fa-circle-notch fa-spin text-brand-500"></i> Consultando base de datos en MySQL (puerto 3307)...
         </div>
     `;
     cont.scrollTop = cont.scrollHeight;
 
     try {
-        const r = await fakeFetch('/api/chat/rag', {
+        const r = await apiFetch('/api/chat/rag', {
             method: 'POST',
             body: { query }
         });
 
-        document.getElementById(typingId)?.remove();
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.remove();
 
         cont.innerHTML += `
             <div class="flex gap-2.5 items-start animate-fade-in">
@@ -75,10 +78,13 @@ window.handleChatSubmit = async (e) => {
             </div>
         `;
     } catch (err) {
-        document.getElementById(typingId)?.remove();
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.remove();
+
         cont.innerHTML += `
-            <div class="text-rose-500 text-[11px] p-2 bg-rose-50 dark:bg-rose-950/40 rounded-xl">
-                Error al consultar el servicio RAG (HTTP 500).
+            <div class="text-rose-500 text-[11px] p-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-900/40">
+                <i class="fa-solid fa-circle-exclamation mr-1"></i>
+                ${escapeHTML(err.message || 'No se pudo consultar el servicio RAG.')}
             </div>
         `;
     }

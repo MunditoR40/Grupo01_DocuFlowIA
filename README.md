@@ -1,75 +1,168 @@
-# DocuFlow AI — Landing Page (Grupo 01)
+# DocuFlow AI — Plataforma de Gestión Documental Inteligente (Grupo 01)
+**Curso:** Aplicaciones Distribuidas I  
+**Universidad:** Universidad Nacional del Santa (UNS)  
+**Semana:** 6 (Primer Avance Funcional — PHP Nativo + PDO + MySQL 3307)
 
-Antes todo el proyecto vivía en un único HTML. Ahora está separado por responsabilidades:
+---
 
-```
-Grupo01_DocuFlowIA/
-├── index.html                  ← Punto de entrada (solo estructura HTML)
-├── css/
-│   └── estilos.css             ← Estilos propios + keyframes
-├── js/
-│   ├── tailwind-config.js      ← Configuración de Tailwind (brand, animaciones)
-│   ├── main.js                 ← Arranque: restaura ruta y pestaña guardadas
-│   ├── core/
-│   │   ├── theme-init.js       ← Evita el parpadeo de tema al recargar (F5)
-│   │   ├── config.js           ← Credenciales demo, claves de LocalStorage, timeouts
-│   │   ├── toast.js            ← Notificaciones flotantes + escapeHTML()
-│   │   ├── api.js              ← fakeFetch: simulación HTTP (login, OCR, RAG)
-│   │   ├── router.js           ← Router SPA (vistas, pestañas, History API)
-│   │   ├── theme.js            ← Modo claro / oscuro
-│   │   └── idle.js             ← Cierre de sesión por inactividad (15 min)
-│   └── features/
-│       ├── auth.js             ← Login, validación de correo, logout
-│       ├── ocr.js              ← Carga de archivo, escaneo OCR y guardado
-│       ├── repository.js       ← Filtro en vivo del repositorio RAG
-│       ├── chatbot.js          ← Chatbot RAG contextual
-│       └── landing.js          ← Búsqueda rápida del hero y menú móvil
-├── php/
-│   ├── config.php              ← Parámetros de conexión (Host 127.0.0.1, Puerto 3307, BD, usuario)
-│   ├── conexion.php            ← Conexión PDO robusta y singleton Database::conectar()
-│   ├── test_conexion.php       ← Verificador visual y de consola para probar MySQL
-│   ├── crear_base_datos.php    ← Asistente para inicializar docuflow_db automáticamente
-│   └── schema.sql              ← Tablas iniciales (usuarios, documentos, chat_historial)
-├── FAVICON.png
-├── Logotipo Horizontal.png
-└── Logotipo Horizontal Dark.png
+## 1. Descripción del Proyecto
+
+**DocuFlow AI** es una plataforma web para la gestión, organización, digitalización y consulta inteligente de documentos administrativos de una institución (oficios, memorandos, informes técnicos, etc.).
+
+En este primer hito funcional, el sistema implementa un flujo de persistencia real de extremo a extremo sin frameworks pesados ni Laravel:
+```text
+HTML5 + CSS3 + Vanilla JavaScript
+             ↓ (Fetch API con FormData y Credenciales)
+        PHP 8 Nativo
+             ↓ (Sesiones seguras, password_verify, CSRF)
+     PHP Data Objects (PDO)
+             ↓ (Prepared Statements, Transacciones y Rollback)
+ MySQL 8 / MariaDB (Puerto TCP/IP 3307, docuflow_db, 11 tablas)
 ```
 
-> El antiguo archivo único (`Landing Page - Grupo02.html`) se eliminó porque su contenido
-> ya está repartido entre `index.html`, `css/estilos.css` y los archivos de `js/`.
+---
 
-## Cómo abrirlo
+## 2. Requisitos del Entorno
 
-- **Doble clic en `index.html`** (funciona con `file://`).
-- O con un servidor local, por ejemplo: `npx serve .` o la extensión *Live Server* de VS Code.
+- **Servidor Web:** Apache (vía XAMPP u homólogo).
+- **PHP:** Versión 8.0 o superior (con extensiones `pdo`, `pdo_mysql`, `fileinfo`, `session` activas).
+- **Base de Datos:** MySQL / MariaDB escuchando en el **puerto 3307** (configuración local especificada para el Grupo 01).
+- **Navegador Web:** Chrome, Edge, Firefox con soporte para JavaScript moderno.
 
-## Notas técnicas
+---
 
-- **Orden de carga de scripts:** importa. `index.html` los carga al final del `<body>` en el
-  orden correcto. `theme-init.js` va en el `<head>` y `tailwind-config.js` siempre **después**
-  del CDN de Tailwind.
-- **Scripts clásicos (no ES modules):** así la página sigue funcionando abierta como archivo
-  local (`file://`), donde los `import` fallarían por CORS. Por eso las funciones de cada
-  archivo quedan en el ámbito global y los `onclick="..."` del HTML las encuentran.
-- Los `@keyframes` (`scanner`, `shimmer`, etc.) se declararon también en `estilos.css` porque
-  `.scanner-line` y `.skeleton` los usan directamente desde CSS; sin ellos, el láser del OCR
-  no se animaba.
-- Los logos apuntaban a `LOGO HORIZONTAL.png` (archivo inexistente) y dependían de un
-  `onerror` como respaldo. Ahora apuntan directo a los nombres reales.
+## 3. Configuración de Base de Datos (MySQL Puerto 3307)
 
-## Base de Datos (MySQL - Puerto 3307)
+La base de datos se denomina `docuflow_db` y cuenta con 11 tablas normalizadas:
+1. `roles` (5 roles del sistema)
+2. `permisos` (19 permisos de la matriz)
+3. `rol_permiso` (46 asignaciones de privilegios)
+4. `dependencias` (catálogo institucional)
+5. `usuarios` (usuarios registrados)
+6. `tipos_documento` (catálogo de tipos documentales)
+7. `documentos` (expedientes registrados)
+8. `metadatos_documento` (asunto, fechas, remitente, destinatario)
+9. `chunks_documento` (fragmentos textuales para búsqueda RAG)
+10. `evaluaciones_ia_log` (trazas de métricas de investigación)
+11. `auditoria_acciones` (bitácora inmutable de eventos)
 
-La conexión a la base de datos se encuentra organizada en la carpeta `php/`:
+### Parámetros de Conexión (`php/config.php`):
+```php
+define('DB_HOST', '127.0.0.1'); // Fuerza conexión TCP/IP
+define('DB_PORT', 3307);        // Puerto requerido: 3307
+define('DB_NAME', 'docuflow_db');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_CHARSET', 'utf8mb4');
+```
 
-1. **Configuración (`php/config.php`):**
-   - Host: `127.0.0.1` (fuerza la conexión TCP/IP para respetar puertos personalizados como el `3307`).
-   - Puerto: `3307`.
-   - Base de datos: `docuflow_db`.
-   - Usuario: `root`.
-2. **Conexión (`php/conexion.php`):** Implementada con **PDO** con modo de error por excepción y emulación de prepares desactivada para máxima seguridad contra inyecciones SQL.
-3. **Comprobación:**
-   - En consola: `php php/test_conexion.php`
-   - En navegador: `http://localhost/Grupo01_DocuFlowIA/php/test_conexion.php`
-4. **Inicialización de Tablas:**
-   - Ejecuta `php php/crear_base_datos.php` para crear la base de datos y sus tablas automáticamente.
+> **IMPORTANTE:** No se debe ejecutar `DROP DATABASE` ni `TRUNCATE`. Los registros iniciales se preservan íntegramente.
 
+---
+
+## 4. Credenciales de Demostración y Roles
+
+| Rol | Código | Correo de Acceso | Contraseña | Alcance y Permisos |
+| :--- | :---: | :--- | :--- | :--- |
+| **Operador** | `OPE` | `operador.demo@docuflow.test` | `DocuFlowDemo2026!` | Registra documentos, sube archivos físicos, valida OCR y consulta expedientes de su dependencia. |
+| **Administrador** | `ADM` | `admin@docuflow.ai` | `DocuFlow2026` | Gestión técnica, catálogo y auditoría. **No registra documentos por defecto** (recibe HTTP 403 si lo intenta). |
+| **Gestor Documental** | `GES` | Configurable | BCRYPT | Registra, clasifica, edita y anula documentos de su ámbito. |
+| **Consultor** | `CON` | Configurable | BCRYPT | Consulta y busca documentos autorizados sin modificarlos. |
+| **Auditor** | `AUD` | Configurable | BCRYPT | Inspecciona bitácora de auditoría y reportes. |
+
+---
+
+## 5. Instrucciones de Instalación y Ejecución
+
+1. **Ubicar el proyecto en XAMPP:**
+   Asegúrate de que la carpeta esté ubicada en:
+   ```text
+   C:\xampp\htdocs\Grupo01_DocuFlowIA
+   ```
+
+2. **Verificar servicios en XAMPP Control Panel:**
+   - Inicia **Apache** (puerto estándar 80).
+   - Inicia **MySQL** en el **puerto 3307**.
+
+3. **Ejecutar diagnóstico de conexión:**
+   - **Por consola:**
+     ```powershell
+     cd C:\xampp\htdocs\Grupo01_DocuFlowIA
+     php php/test_conexion.php
+     ```
+   - **Por navegador:**
+     Visita: [http://localhost/Grupo01_DocuFlowIA/php/test_conexion.php](http://localhost/Grupo01_DocuFlowIA/php/test_conexion.php)
+
+4. **Acceder a la Aplicación:**
+   - **Portal Principal / Landing:** [http://localhost/Grupo01_DocuFlowIA/](http://localhost/Grupo01_DocuFlowIA/)
+   - **Acceso a Intranet / Login:** [http://localhost/Grupo01_DocuFlowIA/login.html](http://localhost/Grupo01_DocuFlowIA/login.html)
+   - **Panel de Control / Dashboard:** [http://localhost/Grupo01_DocuFlowIA/dashboard.html](http://localhost/Grupo01_DocuFlowIA/dashboard.html)
+
+---
+
+## 6. Demostración del Flujo Operativo Completo
+
+1. **Iniciar Sesión:**
+   Ingresa a `login.html` y pulsa sobre el botón rápido **"Operador (OPE)"** o escribe `operador.demo@docuflow.test` con su contraseña. La verificación es 100% auténtica mediante `password_verify()` en MySQL y genera una sesión PHP segura (`PHPSESSID` HttpOnly).
+
+2. **Ingresar al Centro OCR & Carga:**
+   - Arrastra o selecciona un archivo (PDF, JPG, PNG o DOCX, máximo 20 MB).
+   - Pulsa **"Procesar Documento con IA"** para ejecutar el escaneo asistido demostrativo.
+   - Revisa o edita los campos del formulario: Código Documental, Tipo de Documento, Fecha de Emisión, Confidencialidad y Asunto.
+
+3. **Guardar en MySQL:**
+   - Pulsa **"Confirmar y Guardar en MySQL"**.
+   - JavaScript enviará el archivo físico y los campos estructurados mediante `FormData` al endpoint `php/api/documentos.php`.
+   - El backend validará el tamaño, MIME real (`finfo`), extensión permitida y calculará el hash SHA-256.
+   - Mediante una **transacción PDO atómica**, se registra:
+     1. Fila en `documentos` con su ruta física en `uploads/`.
+     2. Fila en `metadatos_documento`.
+     3. Fila en `chunks_documento` para búsquedas.
+     4. Fila en `auditoria_acciones` (`DOCUMENTO_REGISTRADO`).
+   - El archivo físico queda guardado con un nombre seguro en `uploads/`.
+
+4. **Consultar en el Repositorio y Descargar:**
+   - Dirígete a la pestaña **"Repositorio RAG"**.
+   - El documento recién guardado aparece de inmediato en la tabla con sus datos: ID, Código, Archivo, Tipo, Registrador, Dependencia, Estados y Fecha.
+   - Pulsa **"Descargar"** para obtener el archivo físico a través del endpoint protegido `php/api/documentos.php?action=download&id=...`.
+   - Recarga la página (F5): el documento continúa visible y persistente.
+
+5. **Verificar Trazabilidad en Auditoría:**
+   - En la pestaña **"Auditoría & Logs"**, comprueba que eventos como `LOGIN`, `DOCUMENTO_REGISTRADO` y `DOCUMENTO_DESCARGADO` quedan registrados de forma inmutable con la IP y datos del usuario.
+
+---
+
+## 7. Ejecución de la Suite de Pruebas Automatizadas
+
+El proyecto incluye un script de pruebas automatizadas que valida de manera desatendida las 14 comprobaciones obligatorias:
+```powershell
+php test_verificaciones.php
+```
+
+### Matriz de Pruebas:
+- **Prueba 01:** Conexión PDO a MySQL en puerto 3307.
+- **Prueba 02:** Autenticación válida con sesión PHP.
+- **Prueba 03:** Rechazo de contraseñas inválidas (HTTP 401).
+- **Prueba 04:** Bloqueo de usuarios con `activo = 0` (HTTP 403).
+- **Prueba 05:** Registro de documento real con `FormData` y `$_FILES` (HTTP 201).
+- **Prueba 06:** Almacenamiento físico del archivo en `uploads/`.
+- **Prueba 07:** Persistencia en tabla `documentos`.
+- **Prueba 08:** Persistencia en `metadatos_documento` y `auditoria_acciones`.
+- **Prueba 09:** Consulta con JOINs en el repositorio.
+- **Prueba 10:** Persistencia verificada tras recarga.
+- **Prueba 11:** Rechazo de usuario sin privilegios (ADM recibe HTTP 403 al intentar registrar).
+- **Prueba 12:** Peticiones sin autenticación rechazadas sin respuestas ficticias (HTTP 401).
+- **Prueba 13:** Búsqueda SQL con parámetros independientes (`:q1`, `:q2`, `:q3`, `:q4`) sin error HY093.
+- **Prueba 14:** Conservación de datos y roles preexistentes.
+
+---
+
+## 8. Seguridad Implementada
+
+- **Prevención de Inyecciones SQL:** PDO con `PDO::ATTR_EMULATE_PREPARES => false` y consultas preparadas con parámetros separados.
+- **Validación Físico-Binaria de Archivos:** Inspección de tipo MIME real con `finfo` de PHP, evitando confiar en la cabecera enviada por el navegador.
+- **Directorio de Almacenamiento Protegido:** Archivo `.htaccess` en `uploads/` que deniega la ejecución de scripts PHP/CGI y deshabilita el listado de directorios.
+- **Protección de Sesión y CSRF:** Cookies con `HttpOnly` y `SameSite=Lax`, regeneración de ID de sesión (`session_regenerate_id(true)`), expiración por inactividad a los 15 minutos y tokens CSRF validados en métodos mutables.
+- **Mitigación XSS:** Escape estricto de entidades HTML en el frontend antes de la renderización en el DOM.
+- **Aislamiento de Errores Internos:** Los mensajes crudos de MySQL (`SQLSTATE[...]`) nunca se exponen al cliente; se registran en el log del servidor y se devuelven respuestas limpias con códigos HTTP estándar (200, 201, 400, 401, 403, 404, 409, 500).
+- **Scripts de Migración No Destructivos:** Ubicados en `php/migraciones/001_agregar_hash_sha256_no_destructivo.sql`.

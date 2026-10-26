@@ -6,11 +6,24 @@
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
 
 require_once __DIR__ . '/../conexion.php';
+require_once __DIR__ . '/../DocuFlowDB.php';
+require_once __DIR__ . '/../auth_helper.php';
 
 try {
     $pdo = Database::conectar();
+    Auth::iniciarSesion();
+
+    // Verificación de permiso: solo roles con AUDITORIA_CONSULTAR (ej: AUD, GES, ADM)
+    $usuario = Auth::requerirPermiso('AUDITORIA_CONSULTAR');
 
     $stmt = $pdo->query("
         SELECT 
@@ -32,18 +45,20 @@ try {
 
     $logs = $stmt->fetchAll();
 
+    http_response_code(200);
     echo json_encode([
-        'ok' => true,
+        'ok'     => true,
         'status' => 200,
-        'total' => count($logs),
-        'data' => $logs
-    ]);
+        'total'  => count($logs),
+        'data'   => $logs
+    ], JSON_UNESCAPED_UNICODE);
 
 } catch (Exception $e) {
+    error_log("Error en php/api/auditoria.php: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
-        'ok' => false,
-        'status' => 500,
-        'message' => 'Error al obtener auditoría: ' . $e->getMessage()
-    ]);
+        'ok'      => false,
+        'status'  => 500,
+        'message' => 'Error al consultar las trazas de auditoría.'
+    ], JSON_UNESCAPED_UNICODE);
 }

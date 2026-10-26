@@ -6,19 +6,31 @@
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
 
 require_once __DIR__ . '/../conexion.php';
+require_once __DIR__ . '/../DocuFlowDB.php';
+require_once __DIR__ . '/../auth_helper.php';
 
 try {
     $pdo = Database::conectar();
+    Auth::iniciarSesion();
+
+    $usuario = Auth::requerirPermiso('ESTADISTICAS_VER');
 
     // 1. Métricas clave
-    $totalDocs = (int)$pdo->query("SELECT COUNT(*) FROM documentos WHERE estado_documental = 'vigente'")->fetchColumn();
-    $totalAnulados = (int)$pdo->query("SELECT COUNT(*) FROM documentos WHERE estado_documental = 'anulado'")->fetchColumn();
-    $totalUsuarios = (int)$pdo->query("SELECT COUNT(*) FROM usuarios WHERE activo = 1")->fetchColumn();
-    $totalTipos = (int)$pdo->query("SELECT COUNT(*) FROM tipos_documento")->fetchColumn();
+    $totalDocs       = (int)$pdo->query("SELECT COUNT(*) FROM documentos WHERE estado_documental = 'vigente'")->fetchColumn();
+    $totalAnulados   = (int)$pdo->query("SELECT COUNT(*) FROM documentos WHERE estado_documental = 'anulado'")->fetchColumn();
+    $totalUsuarios   = (int)$pdo->query("SELECT COUNT(*) FROM usuarios WHERE activo = 1")->fetchColumn();
+    $totalTipos      = (int)$pdo->query("SELECT COUNT(*) FROM tipos_documento")->fetchColumn();
     $totalAuditorias = (int)$pdo->query("SELECT COUNT(*) FROM auditoria_acciones")->fetchColumn();
-    $totalChunks = (int)$pdo->query("SELECT COUNT(*) FROM chunks_documento")->fetchColumn();
+    $totalChunks     = (int)$pdo->query("SELECT COUNT(*) FROM chunks_documento")->fetchColumn();
 
     // 2. Últimos documentos registrados
     $ultimosDocs = $pdo->query("
@@ -27,6 +39,7 @@ try {
         FROM documentos d
         JOIN usuarios u ON u.id = d.usuario_id
         LEFT JOIN tipos_documento t ON t.id = d.tipo_doc_id
+        WHERE d.estado_documental = 'vigente'
         ORDER BY d.id DESC
         LIMIT 5
     ")->fetchAll();
@@ -43,10 +56,11 @@ try {
         LIMIT 6
     ")->fetchAll();
 
+    http_response_code(200);
     echo json_encode([
-        'ok' => true,
+        'ok'     => true,
         'status' => 200,
-        'data' => [
+        'data'   => [
             'kpis' => [
                 'total_documentos' => $totalDocs,
                 'total_anulados'   => $totalAnulados,
@@ -58,13 +72,14 @@ try {
             'ultimos_documentos' => $ultimosDocs,
             'auditoria_reciente' => $recienteAuditoria
         ]
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 
 } catch (Exception $e) {
+    error_log("Error en php/api/resumen.php: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
-        'ok' => false,
-        'status' => 500,
-        'message' => 'Error al calcular resumen: ' . $e->getMessage()
-    ]);
+        'ok'      => false,
+        'status'  => 500,
+        'message' => 'Error al calcular el resumen operativo.'
+    ], JSON_UNESCAPED_UNICODE);
 }

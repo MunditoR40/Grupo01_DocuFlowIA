@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuFlow AI — Plataforma SaaS Distribuida</title>
+    <meta name="description"
+        content="Plataforma SaaS de gestión documental inteligente potenciada por IA. Extracción OCR, Búsqueda Semántica RAG y máxima seguridad empresarial.">
+
+    <!-- Favicon Dinámico -->
+    <link rel="icon" type="image/png" href="FAVICON.png">
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <!-- Precarga del tema (evita parpadeo claro/oscuro) -->
+    <script src="js/core/theme-init.js"></script>
+
+    <!-- Tailwind CSS v3 (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- FontAwesome 6 (CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Configuración de Tailwind (después del CDN) -->
+    <script src="js/tailwind-config.js"></script>
+
+    <!-- Estilos personalizados (CSS propio) -->
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+
+<body
+    class="bg-gray-50 text-gray-800 dark:bg-navy-950 dark:text-gray-100 font-sans antialiased selection:bg-brand-500 selection:text-white transition-colors duration-300">
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ██  CONTENEDOR DE TOASTS FLOTANTES (Esquina Superior Derecha)   ██ -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none"
+        aria-live="polite"></div>
+
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ██  VISTA 1: LANDING PAGE PÚBLICA                               ██ -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <div id="view-landing" class="min-h-screen flex flex-col">
+
+        <!-- ─── NAVBAR STICKY (Glassmorphism + DarkMode Toggle) ─── -->
+        <header id="landing-navbar"
+            class="sticky top-0 left-0 w-full z-40 glass transition-all duration-300 shadow-sm dark:shadow-navy-900/40">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-20">
+
+                    <!-- Logo Principal Adaptativo (Claro / Oscuro) -->
+                    <a href="index.html" class="flex items-center gap-3 group">
+                        <!-- Logo Modo Claro -->
+                        <img src="Logotipo Horizontal.png" alt="DocuFlow AI"
+                            class="h-10 object-contain drop-shadow-sm group-hover:opacity-90 transition-opacity dark:hidden">
+                        <!-- Logo Modo Oscuro -->
+                        <img src="Logotipo Horizontal Dark.png" alt="DocuFlow AI"
+                            class="h-10 object-contain drop-shadow-sm group-hover:opacity-90 transition-opacity hidden dark:block">
+                    </a>
+
+                    <!-- Enlaces Centrales (Desktop) -->
+                    <nav class="hidden md:flex items-center gap-8">
+                        <a href="#hero"
+                            class="text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Inicio</a>
+                        <a href="#about"
+                            class="text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Nosotros</a>
+                        <a href="#solutions"
+                            class="text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Soluciones</a>
+                        <a href="#academic"
+                            class="text-sm font-semibold text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Créditos</a>
+                    </nav>
+
+                    <!-- Acciones Derecha: Dark Mode + Botón Acceso Intranet -->
+                    <div class="flex items-center gap-4">
+
+                        <!-- Botón Conmutador Dark Mode -->
+                        <button id="theme-toggle-btn" onclick="toggleDarkMode()" aria-label="Cambiar modo oscuro/claro"
+                            class="p-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 text-gray-600 dark:text-yellow-400 hover:text-brand-600 dark:hover:text-yellow-300 shadow-sm hover:scale-105 active:scale-95 transition-all">
+                            <i id="theme-icon" class="fa-solid fa-moon text-base"></i>
+                        </button>
+
+                        <!-- Botón Acceso Intranet -->
+                        <a href="login.html"
+                            class="hidden sm:inline-flex items-center gap-2 bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-brand-500/25 hover:shadow-brand-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all">
+                            <i class="fa-solid fa-lock text-xs"></i>
+                            <span>Acceso Intranet</span>
+                        </a>
+
+                        <!-- Botón Hamburguesa Móvil -->
+                        <button onclick="toggleMobileMenu()"
+                            class="md:hidden p-2 text-gray-600 dark:text-gray-300 hover:text-brand-600 focus:outline-none">
+                            <i id="mobile-menu-icon" class="fa-solid fa-bars text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Menú Desplegable Móvil -->
+            <div id="mobile-menu"
+                class="hidden-view md:hidden border-t border-gray-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl px-4 py-4 space-y-3">
+                <a href="#hero" onclick="toggleMobileMenu()"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-brand-600 py-1">Inicio</a>
+                <a href="#about" onclick="toggleMobileMenu()"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-brand-600 py-1">Nosotros</a>
+                <a href="#solutions" onclick="toggleMobileMenu()"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-brand-600 py-1">Soluciones</a>
+                <a href="#academic" onclick="toggleMobileMenu()"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-brand-600 py-1">Créditos</a>
+                <a href="login.html"
+                    class="w-full flex items-center justify-center gap-2 bg-brand-600 text-white text-sm font-semibold py-2.5 rounded-xl shadow mt-2">
+                    <i class="fa-solid fa-lock text-xs"></i> Acceso Intranet
+                </a>
+            </div>
+        </header>
+
+        <!-- ─── HERO SECTION (2 Columnas + Búsqueda Rápida Simulada) ─── -->
+        <section id="hero" class="relative pt-12 pb-20 lg:pt-20 lg:pb-32 overflow-hidden flex-1">
+            <!-- Glows de fondo -->
+            <div
+                class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gradient-to-tr from-brand-500/20 to-purple-500/20 blur-[120px] pointer-events-none rounded-full">
+            </div>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+
+                    <!-- Columna Izquierda: Mensaje + Búsqueda Rápida -->
+                    <div class="lg:col-span-7 space-y-8 text-center lg:text-left">
+                        <div
+                            class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border border-brand-200 dark:border-brand-800/60 bg-brand-50/70 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 text-xs font-semibold tracking-wide shadow-sm">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                            <span>Arquitectura Cliente-Servidor Distribuida</span>
+                        </div>
+
+                        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15]">
+                            Gestión Documental <br>
+                            <span class="gradient-text">Inteligente con IA</span>
+                        </h1>
+
+                        <p
+                            class="text-base sm:text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-normal">
+                            Centraliza, clasifica y consulta repositorios documentales masivos mediante
+                            <strong>Extracción OCR multimodal</strong> y <strong>Búsqueda Semántica RAG</strong>.
+                        </p>
+
+                        <!-- Input de Búsqueda Rápida Simulada Reactiva -->
+                        <div class="max-w-xl mx-auto lg:mx-0">
+                            <div
+                                class="relative flex items-center rounded-2xl border border-gray-300 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 shadow-xl shadow-brand-500/5 p-1.5 focus-within:ring-2 focus-within:ring-brand-500/30 transition-all">
+                                <div class="pl-4 pr-2 text-gray-400 dark:text-gray-500">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </div>
+                                <input id="hero-quick-search" type="text"
+                                    placeholder="Búsqueda rápida simulada (Ej: Oficio RRHH, Contrato, Directiva)..."
+                                    oninput="handleHeroQuickSearch(this.value)"
+                                    class="w-full bg-transparent py-2.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 outline-none">
+                                <button onclick="triggerQuickSearchAlert()"
+                                    class="shrink-0 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-sm transition-colors">
+                                    Buscar
+                                </button>
+                            </div>
+
+                            <!-- Contenedor de Resultados de Búsqueda Rápida Dinámico -->
+                            <div id="quick-search-results"
+                                class="hidden-view mt-2 text-left bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 shadow-xl p-3 animate-fade-in text-xs space-y-2">
+                                <div class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Resultados en
+                                    Repositorio RAG:</div>
+                                <div id="quick-search-list" class="space-y-1.5"></div>
+                            </div>
+                        </div>
+
+                        <!-- Botones de Acción -->
+                        <div class="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
+                            <a href="#solutions"
+                                class="px-6 py-3.5 rounded-xl border border-gray-300 dark:border-slate-700 font-semibold text-sm hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors shadow-sm">
+                                <i class="fa-solid fa-compass mr-2 text-brand-500"></i>Descubrir Soluciones
+                            </a>
+                            <a href="login.html"
+                                class="px-6 py-3.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-semibold text-sm hover:opacity-90 transition-opacity shadow-md inline-flex items-center">
+                                <i class="fa-solid fa-arrow-right-to-bracket mr-2"></i>Entrar al Demo Intranet
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha: Composición Visual Futurista con Íconos Flotantes -->
+                    <div class="lg:col-span-5 relative flex justify-center">
+                        <div class="relative w-full max-w-md">
+
+                            <!-- Tarjeta Principal con Simulación de Análisis -->
+                            <div
+                                class="glass-card rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 border border-white/40 dark:border-slate-700/60">
+                                <div
+                                    class="flex items-center justify-between border-b border-gray-200/60 dark:border-slate-700/60 pb-4 mb-5">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center text-white shadow-md">
+                                            <i class="fa-solid fa-file-contract text-lg"></i>
+                                        </div>
+                                        <div>
+                                            <h2 class="text-sm font-bold text-gray-900 dark:text-white">
+                                                OFICIO-045-2024-UNS</h2>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">PDF • 2.4 MB • Indexado
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
+                                        <i class="fa-solid fa-check-double text-[10px]"></i> 99.8% Precisión
+                                    </span>
+                                </div>
+
+                                <div class="space-y-3.5 text-xs">
+                                    <div class="p-3 rounded-xl bg-gray-100/70 dark:bg-slate-800/70 space-y-1">
+                                        <span class="text-gray-400 font-medium">Asunto Extraído por OCR:</span>
+                                        <p class="font-semibold text-gray-800 dark:text-gray-200">Requerimiento de
+                                            personal docente semestral para la escuela de Ingeniería de Sistemas.</p>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="p-3 rounded-xl bg-gray-100/70 dark:bg-slate-800/70">
+                                            <span class="text-gray-400 block mb-0.5">Entidad Emisora:</span>
+                                            <span class="font-bold text-brand-600 dark:text-brand-400">UNS - RRHH</span>
+                                        </div>
+                                        <div class="p-3 rounded-xl bg-gray-100/70 dark:bg-slate-800/70">
+                                            <span class="text-gray-400 block mb-0.5">Seguridad:</span>
+                                            <span class="font-bold text-purple-600 dark:text-purple-400">SHA-256 Hash
+                                                OK</span>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="flex items-center gap-2 pt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                        <i class="fa-solid fa-bolt text-amber-500"></i>
+                                        <span>Procesado mediante simulación Client-Side en 2000ms</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Elementos Visuales Flotantes -->
+                            <div
+                                class="absolute -top-6 -right-6 p-4 rounded-2xl glass-card shadow-xl border border-brand-200 dark:border-brand-800/50 flex items-center gap-3 animate-float z-20">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                                    <i class="fa-solid fa-brain"></i>
+                                </div>
+                                <div>
+                                    <div class="text-[11px] font-bold">RAG Semántico</div>
+                                    <div class="text-[10px] text-gray-500 dark:text-gray-400">Vectores Activos</div>
+                                </div>
+                            </div>
+
+                            <div
+                                class="absolute -bottom-6 -left-6 p-4 rounded-2xl glass-card shadow-xl border border-purple-200 dark:border-purple-800/50 flex items-center gap-3 animate-float-delay z-20">
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                                    <i class="fa-solid fa-shield-halved"></i>
+                                </div>
+                                <div>
+                                    <div class="text-[11px] font-bold">Auth Simulado</div>
+                                    <div class="text-[10px] text-gray-500 dark:text-gray-400">JWT Token en Storage</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── SECCIÓN: ACERCA DE NOSOTROS ─── -->
+        <section id="about"
+            class="py-20 border-t border-gray-200/80 dark:border-slate-800/80 bg-white/50 dark:bg-navy-900/30">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+                <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+                    <h2 class="text-xs font-bold text-brand-600 dark:text-brand-400 tracking-wider uppercase">Identidad
+                        y Propósito</h2>
+                    <h3 class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white">Sobre la Plataforma
+                        DocuFlow AI</h3>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+                        Solución conceptual de arquitectura distribuida diseñada para transformar repositorios
+                        desestructurados en activos digitales consultables al instante.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- ¿Qué es DocuFlow? -->
+                    <div class="card-3d glass-card p-8 rounded-3xl space-y-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-cubes-stacked"></i>
+                        </div>
+                        <h4 class="text-xl font-bold text-gray-900 dark:text-white">¿Qué es DocuFlow?</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                            Es una plataforma SaaS orientada a centralizar y procesar el flujo documental caótico que
+                            aqueja a instituciones públicas y corporaciones, transformando documentos estáticos en bases
+                            de conocimiento interactivas.
+                        </p>
+                    </div>
+
+                    <!-- Misión -->
+                    <div class="card-3d glass-card p-8 rounded-3xl space-y-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-bullseye"></i>
+                        </div>
+                        <h4 class="text-xl font-bold text-gray-900 dark:text-white">Nuestra Misión</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                            Eliminar la dispersión de archivos físicos y digitales que merman la productividad
+                            operativa, proveyendo canalizaciones automáticas de clasificación, validación y recuperación
+                            inmediata de metadatos.
+                        </p>
+                    </div>
+
+                    <!-- Visión -->
+                    <div class="card-3d glass-card p-8 rounded-3xl space-y-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl">
+                            <i class="fa-solid fa-eye"></i>
+                        </div>
+                        <h4 class="text-xl font-bold text-gray-900 dark:text-white">Nuestra Visión</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                            Constituir el estándar vanguardista de gestión documental inteligente, democratizando el
+                            poder de los modelos multimodales y RAG para acelerar la toma de decisiones basada en
+                            evidencia documental.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ─── SECCIÓN: SOLUCIONES TECNOLÓGICAS (Hover 3D) ─── -->
+        <section id="solutions" class="py-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+                <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+                    <h2 class="text-xs font-bold text-brand-600 dark:text-brand-400 tracking-wider uppercase">
+                        Capacidades del Sistema</h2>
+                    <h3 class="text-3xl sm:text-4xl font-extrabold text-gray-900 dark:text-white">Soluciones
+                        Tecnológicas con IA</h3>
+                    <p class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+                        Diseñadas bajo patrones modernos de software distribuido y procesamiento asíncrono para
+                        garantizar alta disponibilidad.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+                    <!-- Solución 1: Extracción OCR -->
+                    <div
+                        class="card-3d glass-card p-8 rounded-3xl border border-gray-200/80 dark:border-slate-800 shadow-lg relative overflow-hidden group">
+                        <div
+                            class="absolute -right-8 -top-8 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform">
+                        </div>
+                        <div
+                            class="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-indigo-600 text-white flex items-center justify-center text-2xl mb-6 shadow-md shadow-brand-500/20">
+                            <i class="fa-solid fa-barcode"></i>
+                        </div>
+                        <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Extracción OCR Inteligente</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
+                            Modelos de visión artificial que digitalizan documentos escaneados, identifican firmas,
+                            extraen tablas complejas y sintetizan campos clave en formato estructurado JSON.
+                        </p>
+                        <ul class="text-xs text-gray-500 dark:text-gray-400 space-y-2">
+                            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i>
+                                Detección de tipos documentales</li>
+                            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i>
+                                Validación de sellos y firmas</li>
+                        </ul>
+                    </div>
+
+                    <!-- Solución 2: Búsqueda Semántica RAG -->
+                    <div
+                        class="card-3d glass-card p-8 rounded-3xl border border-gray-200/80 dark:border-slate-800 shadow-lg relative overflow-hidden group">
+                        <div
+                            class="absolute -right-8 -top-8 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform">
+                        </div>
+                        <div
+                            class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center text-2xl mb-6 shadow-md shadow-purple-500/20">
+                            <i class="fa-solid fa-comments"></i>
+                        </div>
+                        <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Búsqueda Semántica RAG</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
+                            Interactúa con tus archivos mediante Retrieval-Augmented Generation. Realiza preguntas en
+                            lenguaje natural y obtén respuestas precisas con citas textuales verificables.
+                        </p>
+                        <ul class="text-xs text-gray-500 dark:text-gray-400 space-y-2">
+                            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i>
+                                Embeddings vectoriales densos</li>
+                            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i> Cero
+                                alucinaciones con fuentes directas</li>
+                        </ul>
+                    </div>
+
+                    <!-- Solución 3: Seguridad Enterprise -->
+                    <div
+                        class="card-3d glass-card p-8 rounded-3xl border border-gray-200/80 dark:border-slate-800 shadow-lg relative overflow-hidden group">
+                        <div
+                            class="absolute -right-8 -top-8 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl group-hover:scale-150 transition-transform">
+                        </div>
+                        <div
+                            class="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white flex items-center justify-center text-2xl mb-6 shadow-md shadow-cyan-500/20">
+                            <i class="fa-solid fa-lock"></i>
+                        </div>
+                        <h4 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Seguridad y Trazabilidad</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">
+                            Control estricto de accesos basado en roles (RBAC), tokens de autenticación para sesiones
+                            distribuidas y pistas de auditoría inmutables para cada acción realizada.
+                        </p>
+                        <ul class="text-xs text-gray-500 dark:text-gray-400 space-y-2">
+                            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i>
+                                Trazabilidad de accesos (401/403)</li>
+                            <li class="flex items-center gap-2"><i class="fa-solid fa-check text-emerald-500"></i>
+                                Cifrado de repositorios en reposo</li>
+                        </ul>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ─── FOOTER CON CRÉDITOS ACADÉMICOS ("Grupo 01", Curso y Docente) ─── -->
+        <footer id="academic"
+            class="border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-navy-950 py-12 mt-auto">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+
+                    <!-- Info Plataforma -->
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-2.5">
+                            <!-- Logo Modo Claro -->
+                            <img src="Logotipo Horizontal.png" alt="DocuFlow AI" class="h-8 object-contain dark:hidden">
+                            <!-- Logo Modo Oscuro -->
+                            <img src="Logotipo Horizontal Dark.png" alt="DocuFlow AI"
+                                class="h-8 object-contain hidden dark:block">
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Plataforma SPA cliente-servidor para la digitalización y orquestación semántica de
+                            expedientes documentales con IA.
+                        </p>
+                    </div>
+
+                    <!-- Créditos Académicos (Integrantes del Grupo 01) -->
+                    <div class="space-y-3">
+                        <h5 class="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Créditos
+                            del Proyecto</h5>
+                        <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1.5">
+                            <li class="font-semibold text-brand-600 dark:text-brand-400"><i
+                                    class="fa-solid fa-users mr-1.5"></i>Grupo 01</li>
+                            <li><strong>•</strong> Gutierrez Alegre Diego Sebastian - <strong>0202414017</strong></li>
+                            <li><strong>•</strong> Lecca Tarazona Rodrigo Eli - <strong>0202414020</strong></li>
+                            <li><strong>•</strong> Moreno Carranza Alyson Gianella - <strong>0202414030</strong></li>
+                            <li><strong>•</strong> Angel Edmundo Rojas León - <strong>0202414044 </strong></li>
+                            <li><strong>•</strong> Sanchez Portalino Myerling Mildret - <strong>0202414050 </strong>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Datos Académicos Detallados -->
+                    <div class="space-y-3">
+                        <h5 class="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Dirección
+                            Académica</h5>
+                        <ul class="text-xs text-gray-600 dark:text-gray-400 space-y-1.5">
+                            <li><strong>Docente Guía:</strong> Mg. Manrique Ronceros Mirko Martin</li>
+                            <li><strong>Asignatura:</strong> Aplicaciones Distribuidas I</li>
+                            <li><strong>Unidad:</strong> Avance I Unidad</li>
+                            <li><strong>Escuela:</strong> Ing. de Sistemas e Informática</li>
+                            <li><strong>Institución:</strong> Universidad Nacional del Santa</li>
+                            <li><strong>Tecnología:</strong> SPA • Vanilla JS • Tailwind</li>
+                            <li><strong>Arquitectura:</strong> 0% Backend (Simulado HTTP)</li>
+                        </ul>
+                    </div>
+
+                    <!-- Estado del Sistema -->
+                    <div class="space-y-3">
+                        <h5 class="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">Estado de
+                            Servicios</h5>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-gray-100 dark:bg-slate-900">
+                                <span class="text-gray-500">fakeFetch Mock Server:</span>
+                                <span class="text-emerald-500 font-bold flex items-center gap-1"><span
+                                        class="w-2 h-2 rounded-full bg-emerald-500"></span> 200 OK</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-gray-100 dark:bg-slate-900">
+                                <span class="text-gray-500">Client Router (History):</span>
+                                <span class="text-brand-500 font-bold">Activo</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div
+                    class="border-t border-gray-100 dark:border-slate-800/80 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-400 dark:text-gray-500 gap-4">
+                    <p>© 2026 DocuFlow AI — Desarrollado por <strong>Grupo 01</strong> para Aplicaciones Distribuidas I.
+                    </p>
+                    <div class="flex items-center gap-4">
+                        <a href="login.html" class="hover:text-brand-500 transition-colors">Portal Intranet</a>
+                        <span>•</span>
+                        <a href="#hero" class="hover:text-brand-500 transition-colors">Volver arriba</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ██  JAVASCRIPT MODULAR PARA LA PÁGINA PRINCIPAL (LANDING)        ██ -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <script src="js/core/config.js"></script>
+    <script src="js/core/toast.js"></script>
+    <script src="js/core/theme.js"></script>
+    <script src="js/features/landing.js"></script>
+
+    <!-- Detección de sesión activa para adaptar enlaces sin forzar redirección -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof initTheme === 'function') initTheme();
+            const token = localStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN);
+            if (token) {
+                // Si el usuario ya está autenticado, actualizar enlaces hacia el Dashboard
+                document.querySelectorAll('a[href="login.html"]').forEach(link => {
+                    link.href = 'dashboard.html';
+                    const span = link.querySelector('span');
+                    if (span && span.textContent.includes('Acceso Intranet')) {
+                        span.textContent = 'Ir al Dashboard';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+
+</html>

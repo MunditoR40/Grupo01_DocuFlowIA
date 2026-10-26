@@ -1,14 +1,12 @@
 /* ==================================================================
-   DocuFlow AI — ROUTER SPA CON HISTORY API & PERSISTENCIA TOTAL
+   DocuFlow AI — ROUTER CON SOPORTE MULTI-PÁGINA & SPA
    ------------------------------------------------------------------
-   Script clásico: las funciones y constantes de nivel superior quedan
-   disponibles de forma global para el resto de archivos y para los
-   atributos onclick/oninput del HTML.
+   Manejo de navegación entre vistas y sincronización de pestañas
    ================================================================== */
 'use strict';
 
 // ═══════════════════════════════════════════════════════
-// 4. ROUTER SPA CON HISTORY API & PERSISTENCIA TOTAL
+// 4. ROUTER CON SOPORTE MULTI-PÁGINA & SPA
 // ═══════════════════════════════════════════════════════
 const VIEWS = ['landing', 'login', 'dashboard'];
 const TABS = ['resumen', 'ocr', 'repositorio', 'auditoria'];
@@ -20,15 +18,15 @@ const TAB_TITLES = {
 };
 
 /**
- * Cambia la vista y sincroniza el estado en LocalStorage y URL hash.
+ * Cambia la vista activa o redirige a la página correspondiente.
  */
 window.showView = function (viewName, pushToHistory = true) {
     if (!VIEWS.includes(viewName)) viewName = 'landing';
 
     // Protección de ruta: Si intenta ingresar al dashboard sin sesión activa
     if (viewName === 'dashboard') {
-        const token = localStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN);
-        if (!token) {
+        const user = localStorage.getItem(CONFIG.STORAGE_KEYS.USER);
+        if (!user && window.location.protocol !== 'file:') {
             showToast('HTTP 401 Unauthorized: Debe iniciar sesión para acceder al Dashboard.', 'error', 401);
             if (!document.getElementById('view-login')) {
                 window.location.href = 'login.html';
@@ -39,25 +37,26 @@ window.showView = function (viewName, pushToHistory = true) {
         }
     }
 
-    // Si la vista solicitada no está en el documento actual, redirigir a su archivo .html
     const targetElement = document.getElementById(`view-${viewName}`);
+
+    // Si la vista no está en la página actual y fue una acción intencional (click):
     if (!targetElement) {
-        if (viewName === 'login') {
-            window.location.href = 'login.html';
-            return;
-        } else if (viewName === 'dashboard') {
-            window.location.href = 'dashboard.html';
-            return;
-        } else if (viewName === 'landing') {
-            window.location.href = 'index.html';
-            return;
+        if (pushToHistory) {
+            if (viewName === 'login') {
+                window.location.href = 'login.html';
+                return;
+            } else if (viewName === 'dashboard') {
+                window.location.href = 'dashboard.html';
+                return;
+            } else if (viewName === 'landing') {
+                window.location.href = 'index.html';
+                return;
+            }
         }
+        return;
     }
 
-    // Guardar última vista visitada para recargas (F5)
-    localStorage.setItem(CONFIG.STORAGE_KEYS.LAST_VIEW, viewName);
-
-    // Alternar contenedores
+    // Alternar contenedores presentes en la página actual
     VIEWS.forEach(v => {
         const el = document.getElementById(`view-${v}`);
         if (el) {
@@ -72,14 +71,14 @@ window.showView = function (viewName, pushToHistory = true) {
         }
     });
 
-    // Si entramos al dashboard, restaurar la pestaña correspondiente y refrescar datos
+    // Si entramos al dashboard, restaurar la pestaña correspondiente
     if (viewName === 'dashboard') {
         const savedTab = localStorage.getItem(CONFIG.STORAGE_KEYS.LAST_TAB) || 'ocr';
         switchDashboardTab(savedTab, false);
         if (typeof cargarDocumentosDesdeBD === 'function') cargarDocumentosDesdeBD();
     }
 
-    // Sincronizar URL hash de forma compatible con entornos locales (file:// y http://)
+    // Sincronizar URL hash si se solicita
     if (pushToHistory) {
         let newHash = '';
         if (viewName === 'dashboard') {
@@ -161,5 +160,5 @@ window.switchDashboardTab = function (tabName, syncUrl = true) {
 
 // Escuchar navegación Atrás / Adelante del navegador (popstate)
 window.addEventListener('popstate', () => {
-    parseAndApplyRoute();
+    if (typeof parseAndApplyRoute === 'function') parseAndApplyRoute();
 });

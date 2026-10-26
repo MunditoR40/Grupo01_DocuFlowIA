@@ -126,17 +126,25 @@
             </form>
 
             <!-- Card de Credenciales Rápidas para Pruebas / Demostración -->
-            <div class="mt-6 p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs space-y-2">
+            <div class="mt-6 p-3.5 rounded-2xl bg-white/5 border border-white/10 text-xs space-y-2.5">
                 <div class="flex items-center justify-between text-gray-300">
                     <span class="font-bold flex items-center gap-1.5 text-yellow-400">
-                        <i class="fa-solid fa-key"></i> Credenciales en MySQL:
+                        <i class="fa-solid fa-key"></i> Credenciales en MySQL (Puerto 3307):
                     </span>
-                    <button onclick="fillDemoCredentials()"
-                        class="text-brand-300 hover:text-brand-200 underline">Auto-completar</button>
                 </div>
-                <div class="font-mono text-[11px] text-gray-400 space-y-1">
-                    <div>Admin: <strong class="text-white">admin@docuflow.ai</strong> (DocuFlow2026)</div>
-                    <div>Operador: <strong class="text-white">operador.demo@docuflow.test</strong> (DocuFlowDemo2026!)</div>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button type="button" onclick="fillDemoCredentials('ope')"
+                        class="px-2.5 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 text-indigo-300 text-left transition-colors">
+                        <div class="font-bold text-[11px] text-white">Operador (OPE)</div>
+                        <div class="text-[10px] text-gray-300 truncate">operador.demo@...</div>
+                        <div class="text-[9px] text-emerald-400 mt-0.5">Puede registrar docs</div>
+                    </button>
+                    <button type="button" onclick="fillDemoCredentials('adm')"
+                        class="px-2.5 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 text-left transition-colors">
+                        <div class="font-bold text-[11px] text-white">Admin (ADM)</div>
+                        <div class="text-[10px] text-gray-300 truncate">admin@docuflow.ai</div>
+                        <div class="text-[9px] text-amber-400 mt-0.5">Gestión técnica</div>
+                    </button>
                 </div>
             </div>
 
@@ -155,27 +163,8 @@
     <script src="js/core/config.js"></script>
     <script src="js/core/toast.js"></script>
     <script src="js/core/api.js"></script>
-    <script src="js/core/router.js"></script>
     <script src="js/core/theme.js"></script>
-    <script src="js/core/idle.js"></script>
     <script src="js/features/auth.js"></script>
-    <script src="js/features/ocr.js"></script>
-    <script src="js/features/repository.js"></script>
-    <script src="js/features/chatbot.js"></script>
-    <script src="js/features/landing.js"></script>
-    <script src="js/main.js"></script>
-
-    <!-- Script de redirección al Dashboard al loguearse con éxito -->
-    <script>
-        // Si el usuario ya cuenta con sesión activa, sugerir o redirigir
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN);
-            if (token && window.location.hash !== '#logout') {
-                // Si ya está autenticado, va al dashboard
-                // window.location.href = 'dashboard.html';
-            }
-        });
-    </script>
 </body>
 
 </html>

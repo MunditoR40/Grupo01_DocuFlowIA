@@ -437,10 +437,12 @@
                             <thead>
                                 <tr
                                     class="bg-gray-50 dark:bg-slate-800/50 text-gray-400 font-bold uppercase tracking-widest border-b border-gray-100 dark:border-slate-800">
-                                    <th class="px-6 py-4">Documento</th>
-                                    <th class="px-6 py-4">Categoría / Dependencia</th>
-                                    <th class="px-6 py-4">Fecha Registro</th>
-                                    <th class="px-6 py-4">Estado</th>
+                                    <th class="px-5 py-4">ID & Código</th>
+                                    <th class="px-5 py-4">Archivo / Tipo</th>
+                                    <th class="px-5 py-4">Registrador / Dependencia</th>
+                                    <th class="px-5 py-4">Estados</th>
+                                    <th class="px-5 py-4">Fecha Registro</th>
+                                    <th class="px-5 py-4 text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="repo-table-body" class="divide-y divide-gray-50 dark:divide-slate-800">
@@ -533,75 +535,7 @@
     <script src="js/features/ocr.js"></script>
     <script src="js/features/repository.js"></script>
     <script src="js/features/chatbot.js"></script>
-    <script src="js/features/landing.js"></script>
     <script src="js/main.js"></script>
-
-    <!-- Script de Inicialización y Sincronización con MySQL -->
-    <script>
-        // Carga de logs de auditoría desde la base de datos
-        window.cargarAuditoriaDesdeBD = async function() {
-            const container = document.getElementById('auditoria-logs-container');
-            if (!container) return;
-
-            try {
-                const res = await fakeFetch('/api/auditoria');
-                const logs = res.data || [];
-                if (Array.isArray(logs) && logs.length > 0) {
-                    container.innerHTML = '';
-                    logs.forEach(log => {
-                        const item = document.createElement('div');
-                        item.className = 'glass-card p-4 rounded-2xl border border-gray-200 dark:border-slate-800 flex items-center justify-between text-xs hover:border-brand-500/50 transition-colors animate-fade-in';
-                        item.innerHTML = `
-                            <div class="flex items-center gap-4">
-                                <div class="w-8 h-8 rounded-full bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-                                    <i class="fa-solid fa-shield"></i>
-                                </div>
-                                <div>
-                                    <p class="font-bold text-gray-900 dark:text-white">${escapeHTML(log.accion)}</p>
-                                    <p class="text-gray-400">Usuario: ${escapeHTML(log.usuario_nombre)} • IP: ${escapeHTML(log.direccion_ip || '127.0.0.1')}</p>
-                                </div>
-                            </div>
-                            <span class="text-gray-400 font-mono text-[11px]">${escapeHTML(log.created_at || '')}</span>
-                        `;
-                        container.appendChild(item);
-                    });
-                }
-            } catch (e) {
-                console.warn('Error al cargar auditoría:', e);
-            }
-        };
-
-        // Carga de métricas reales del resumen
-        window.cargarMetricasResumen = async function() {
-            try {
-                const res = await fakeFetch('/api/resumen');
-                if (res.ok && res.data?.kpis) {
-                    const k = res.data.kpis;
-                    if (document.getElementById('kpi-total-docs')) document.getElementById('kpi-total-docs').textContent = k.total_documentos;
-                    if (document.getElementById('kpi-total-users')) document.getElementById('kpi-total-users').textContent = k.total_usuarios;
-                    if (document.getElementById('kpi-total-types')) document.getElementById('kpi-total-types').textContent = k.total_tipos;
-                    if (document.getElementById('kpi-total-audits')) document.getElementById('kpi-total-audits').textContent = k.total_auditorias;
-                }
-            } catch (e) {
-                console.warn('Error al cargar métricas:', e);
-            }
-        };
-
-        // Protección de ruta y carga inicial de datos
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem(CONFIG.STORAGE_KEYS.TOKEN);
-            if (!token && window.location.protocol !== 'file:') {
-                // Redirigir al login si no hay token de sesión
-                window.location.href = 'login.html';
-                return;
-            }
-
-            // Cargar datos reales de MySQL
-            cargarDocumentosDesdeBD();
-            cargarAuditoriaDesdeBD();
-            cargarMetricasResumen();
-        });
-    </script>
 </body>
 
 </html>

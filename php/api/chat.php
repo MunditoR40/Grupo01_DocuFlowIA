@@ -7,42 +7,54 @@
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
 require_once __DIR__ . '/../conexion.php';
 require_once __DIR__ . '/../DocuFlowDB.php';
+require_once __DIR__ . '/../auth_helper.php';
 
-$input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+$rawInput = file_get_contents('php://input');
+$input = (!empty($rawInput) ? json_decode($rawInput, true) : null) ?? $_POST ?? [];
 $query = trim($input['query'] ?? '');
 
 if (empty($query)) {
     http_response_code(400);
     echo json_encode([
-        'ok' => false,
-        'status' => 400,
-        'message' => 'Por favor ingrese una pregunta.'
-    ]);
+        'ok'      => false,
+        'status'  => 400,
+        'message' => 'Por favor ingrese una pregunta para consultar el asistente RAG.'
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 try {
     $pdo = Database::conectar();
+    Auth::iniciarSesion();
+
+    $usuario = Auth::requerirPermiso('RAG_CONSULTAR');
 
     // Búsqueda de coincidencia en chunks_documento y metadatos_documento
     $terminos = preg_split('/\s+/', $query);
     $condiciones = [];
     $params = [];
 
-    foreach ($terminos as $i => $termino) {
-        if (strlen($termino) > 2) {
-            $paramKey = "term_$i";
-            $condiciones[] = "(c.contenido_texto LIKE :$paramKey OR m.asunto LIKE :$paramKey OR d.codigo_doc LIKE :$paramKey)";
-            $params[$paramKey] = "%$termino%";
+    $paramIndex = 0;
+    foreach ($terminos as $termino) {
+        $termLimpio = trim($termino);
+        if (mb_strlen($termLimpio) > 2) {
+            $cKey = "c_term_" . $paramIndex;
+            $mKey = "m_term_" . $paramIndex;
+            $dKey = "d_term_" . $paramIndex;
+            $condiciones[] = "(c.contenido_texto LIKE :$cKey OR m.asunto LIKE :$mKey OR d.codigo_doc LIKE :$dKey)";
+            $params[$cKey] = "%$termLimpio%";
+            $params[$mKey] = "%$termLimpio%";
+            $params[$dKey] = "%$termLimpio%";
+            $paramIndex++;
         }
     }
 
@@ -52,7 +64,7 @@ try {
         SELECT d.id, d.codigo_doc, d.nombre_original,
                m.asunto, m.resumen_contenido,
                c.contenido_texto,
-               t.nombre AS tipo_doc
+               COALESCE(t.nombre, 'General') AS tipo_doc
         FROM documentos d
         LEFT JOIN metadatos_documento m ON m.documento_id = d.id
         LEFT JOIN chunks_documento c ON c.documento_id = d.id
@@ -72,38 +84,42 @@ try {
         }, $coincidencias);
 
         $primer = $coincidencias[0];
-        $answer = "Encontré información relevante en el expediente <strong>{$primer['codigo_doc']}</strong> ({$primer['tipo_doc']}).<br>"
+        $answer = "Encontré información relevante en el expediente <strong>" . htmlspecialchars($primer['codigo_doc']) . "</strong> (" . htmlspecialchars($primer['tipo_doc']) . ").<br>"
                 . "<em>Asunto:</em> " . htmlspecialchars($primer['asunto'] ?? 'No especificado') . ".<br>"
-                . "<span class='text-xs text-brand-400'>Fuente: Base de Datos Relacional y Vectorial RAG (MySQL 3307).</span>";
+                . "<span class='text-xs text-brand-400'>Fuente: Documentos indexados en MySQL (Puerto 3307).</span>";
     } else {
-        $answer = "No se hallaron coincidencias directas en la base vectorial para <em>\"" . htmlspecialchars($query) . "\"</em>. Prueba consultar por <em>\"oficio\"</em>, <em>\"recursos humanos\"</em> o <em>\"demo\"</em>.";
+        $answer = "No se hallaron coincidencias en el repositorio para <em>\"" . htmlspecialchars($query) . "\"</em>. Prueba consultar por términos como <em>\"oficio\"</em>, <em>\"recursos humanos\"</em> o <em>\"demo\"</em>.";
     }
 
     // Registrar en auditoria_acciones
     DocuFlowDB::registrarAuditoria(
-        null,
+        (int)$usuario['id'],
         !empty($coincidencias) ? (int)$coincidencias[0]['id'] : null,
-        'CONSULTA_CHATBOT_RAG',
+        'DOCUMENTO_CONSULTADO',
         [
-            'query' => $query,
+            'origen'           => 'chat_rag',
+            'query'            => $query,
             'resultados_count' => count($coincidencias)
         ]
     );
 
+    http_response_code(200);
     echo json_encode([
-        'ok' => true,
+        'ok'     => true,
         'status' => 200,
-        'data' => [
-            'answer' => $answer,
-            'sources' => $fuentes
+        'data'   => [
+            'answer'     => $answer,
+            'fuentes'    => $fuentes,
+            'confidence' => !empty($coincidencias) ? 0.94 : 0.0
         ]
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 
 } catch (Exception $e) {
+    error_log("Error en php/api/chat.php: " . $e->getMessage());
     http_response_code(500);
     echo json_encode([
-        'ok' => false,
-        'status' => 500,
-        'message' => 'Error en el motor RAG: ' . $e->getMessage()
-    ]);
+        'ok'      => false,
+        'status'  => 500,
+        'message' => 'Error interno al consultar el asistente RAG.'
+    ], JSON_UNESCAPED_UNICODE);
 }
